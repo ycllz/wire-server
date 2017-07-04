@@ -3,6 +3,7 @@
 module Brig.Types.Team.Invitation where
 
 import Brig.Types.Common
+import Data.Misc (Email (..))
 import Data.Aeson
 import Data.Id
 import Data.Json.Util
