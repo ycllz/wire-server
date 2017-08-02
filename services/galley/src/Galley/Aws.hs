@@ -47,7 +47,7 @@ import qualified Network.AWS as AWS
 import qualified Network.AWS.Env as AWS
 import qualified Network.AWS.SQS as SQS
 import qualified Network.TLS as TLS
-import qualified Proto.Galley.Intra.TeamEvents as E
+import qualified Proto.TeamEvents as E
 import qualified System.Logger as Logger
 
 newtype QueueUrl = QueueUrl Text

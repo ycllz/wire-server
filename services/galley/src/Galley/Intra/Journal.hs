@@ -20,7 +20,7 @@ import Data.Time.Clock (getCurrentTime)
 import Data.Time.Clock.POSIX
 import Galley.App
 import Prelude hiding (head, mapM)
-import Proto.Galley.Intra.TeamEvents
+import Proto.TeamEvents
 
 import qualified Data.UUID as UUID
 import qualified Galley.Aws as Aws

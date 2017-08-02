@@ -29,7 +29,7 @@ import qualified System.Logger as L
 import qualified Data.ByteString.Base64 as B64
 import qualified Network.AWS as AWS
 import qualified Network.AWS.SQS as SQS
-import qualified Proto.Galley.Intra.TeamEvents as E
+import qualified Proto.TeamEvents as E
 import qualified Data.Text.Encoding as Text
 import qualified OpenSSL.X509.SystemStore as Ssl
 
