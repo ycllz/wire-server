@@ -1,0 +1,54 @@
+name:           migrator
+version:        0.0.1
+synopsis:       Migrator
+author:         Wire Swiss GmbH
+maintainer:     Wire Swiss GmbH <backend@wire.com>
+copyright:      (c) 2017 Wire Swiss GmbH
+category:       Network
+license:        AGPL-3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+
+executable migrator
+    main-is:            Main.hs
+    hs-source-dirs:     src
+
+    default-language:   Haskell2010
+
+    build-depends:
+        base
+      , brig
+      , optparse-applicative
+      , cassandra-util
+      , lens
+      , text
+      , lifted-async
+      , mtl
+      , proto-lens
+      , HsOpenSSL
+      , HsOpenSSL-x509-system
+      , http-client
+      , http-client-openssl-ext
+      , proto-lens-protoc
+      , bytestring
+      , bytestring-conversion
+      , types-common
+      , types-common-journal
+      , time
+      , tinylog
+      , bytestring
+      , uuid
+
+    other-modules:
+        Options
+      , Migration
+
+    ghc-options:
+        -Wall
+        -fwarn-tabs
+        -funbox-strict-fields
+        -threaded
+        -with-rtsopts=-N1
+        -with-rtsopts=-T
+        -rtsopts
