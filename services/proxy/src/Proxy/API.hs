@@ -17,7 +17,7 @@ import Data.ByteString (ByteString)
 import Data.CaseInsensitive (CI)
 import Data.Metrics.Middleware hiding (path)
 import Data.Monoid
-import Data.Text (Text)
+import Data.Text (Text, unpack)
 import Network.HTTP.ReverseProxy
 import Network.HTTP.Types
 import Network.Wai
@@ -48,7 +48,7 @@ run :: Opts -> IO ()
 run o = do
     m <- metrics
     e <- createEnv m o
-    s <- newSettings $ defaultServer (o^.hostname) (o^.port) (e^.applog) m
+    s <- newSettings $ defaultServer (unpack $ o^.hostname) (fromIntegral $ o^.port) (e^.applog) m
     let rtree    = compile (sitemap e)
     let measured = measureRequests m rtree
     let app r k  = runProxy e r (route rtree r k)
@@ -251,4 +251,5 @@ instance ToBytes S where
         +++ val ","
         +++ statusMessage s
         +++ val ")"
+
 

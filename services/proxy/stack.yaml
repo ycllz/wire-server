@@ -12,5 +12,6 @@ flags:
     protobuf: True
     arbitrary: True
 
-extra-deps: []
-extra-package-dbs: []
+extra-deps:
+- dhall-1.6.0
+

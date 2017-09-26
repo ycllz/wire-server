@@ -30,6 +30,7 @@ library
         , bytestring           >= 0.10
         , case-insensitive     >= 1.2
         , configurator         >= 0.3
+        , dhall                >= 1.6
         , http-reverse-proxy   >= 0.4
         , http-client          >= 0.4
         , http-client-tls      >= 0.2

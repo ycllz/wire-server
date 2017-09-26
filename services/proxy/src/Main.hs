@@ -1,7 +1,8 @@
 module Main (main) where
 
 import Proxy.API
-import Proxy.Options (parseOptions)
+import Proxy.Options
 
 main :: IO ()
-main = parseOptions >>= run
+main = parseConfig >>= run
+

@@ -18,6 +18,7 @@ import Control.Lens (makeLenses, (^.))
 import Data.Configurator
 import Data.Configurator.Types
 import Data.Id (RequestId)
+import Data.Text (unpack)
 import Data.Metrics.Middleware (Metrics)
 import Proxy.Options
 import Network.HTTP.Client
@@ -42,12 +43,12 @@ createEnv :: Metrics -> Opts -> IO Env
 createEnv m o = do
     g <- new (setOutput StdOut . setFormat Nothing $ defSettings)
     n <- newManager tlsManagerSettings
-            { managerConnCount           = o^.httpPoolSize
-            , managerIdleConnectionCount = 3 * (o^.httpPoolSize)
+            { managerConnCount           = fromIntegral $ o^.httpPoolSize
+            , managerIdleConnectionCount = fromIntegral $ 3 * (o^.httpPoolSize)
             , managerResponseTimeout     = responseTimeoutMicro 5000000
             }
     let ac = AutoConfig 60 (reloadError g)
-    (c, t) <- autoReload ac [Required $ o^.config]
+    (c, t) <- autoReload ac [Required $ unpack $ o^.config]
     return $! Env mempty m o g n c t
   where
     reloadError g x =
@@ -57,3 +58,4 @@ destroyEnv :: Env -> IO ()
 destroyEnv e = do
     killThread (e^.loader)
     Logger.close (e^.applog)
+
