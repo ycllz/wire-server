@@ -3,7 +3,7 @@
 
 module Proxy.Options
     ( Opts
-    , parseOptions
+    , parseConfigOrOptions
     , hostname
     , port
     , config
@@ -14,8 +14,11 @@ module Proxy.Options
 import Control.Lens
 import Data.Monoid
 import Data.Word
-import Data.Yaml (FromJSON(..), (.:), (.:?))
+import Control.Monad (mzero)
+import Data.Yaml (FromJSON(..), (.:), decodeFileEither, ParseException)
 import Options.Applicative
+import System.Directory
+import System.IO (hPutStrLn, stderr)
 
 import qualified Data.Yaml as Y
 
@@ -37,12 +40,38 @@ instance FromJSON Opts where
     v .: "config" <*>
     v .: "http-pool-size" <*>
     v .: "max-conns"
+  parseJSON _ = mzero
+
+parseConfigOrOptions :: IO Opts
+parseConfigOrOptions = do
+  path <- parseConfigPath
+  file <- doesFileExist path
+  if file then do
+    configFile <- decodeConfigFile path
+    case configFile of
+      Left err -> fail $ show err
+      Right opts -> return opts
+  else do
+    hPutStrLn stderr $ "Config file at " ++ path ++ " does not exist, fallback to command-line arguments. \n"
+    parseOptions
+
+decodeConfigFile :: FilePath -> IO (Either ParseException Opts)
+decodeConfigFile = decodeFileEither
+
+parseConfigPath :: IO String
+parseConfigPath = execParser (info (helper <*> pathParser) desc)
+  where
+    pathParser :: Parser String
+    pathParser = strOption $
+                  long "config-file"
+                  <> short 'c'
+                  <> help "Config file to load"
+                  <> showDefault
+                  <> value "/etc/wire/proxy/proxy.yaml"
 
 parseOptions :: IO Opts
 parseOptions = execParser (info (helper <*> optsParser) desc)
   where
-    desc = header "Proxy - 3rd party proxy" <> fullDesc
-
     optsParser :: Parser Opts
     optsParser = Opts
         <$> (strOption $
@@ -75,3 +104,8 @@ parseOptions = execParser (info (helper <*> optsParser) desc)
                 long "max-connections"
                 <> metavar "SIZE"
                 <> help "maximum number of incoming connections")
+
+desc :: InfoMod a
+desc = header "Proxy - 3rd party proxy" <> fullDesc
+
+
