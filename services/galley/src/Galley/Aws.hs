@@ -44,6 +44,7 @@ import System.Logger.Class
 import qualified Control.Monad.Trans.AWS as AWST
 import qualified Data.ByteString.Base64 as B64
 import qualified Network.AWS as AWS
+import qualified Network.AWS as AWS2
 import qualified Network.AWS.Env as AWS
 import qualified Network.AWS.SQS as SQS
 import qualified Network.TLS as TLS
@@ -92,14 +93,29 @@ instance MonadBaseControl IO Amazon where
     liftBaseWith    f = Amazon $ liftBaseWith $ \run -> f (run . unAmazon)
     restoreM          = Amazon . restoreM
 
+
+sqsEndpoint :: AWS.Service
+sqsEndpoint = AWS.setEndpoint False "localhost" 4568 SQS.sqs
+
 instance AWS.MonadAWS Amazon where
-    liftAWS aws = view awsEnv >>= \e -> AWS.runAWS e aws
+    liftAWS aws = view awsEnv >>= \e -> AWS.runAWS e $ do
+      AWS2.reconfigure sqsEndpoint $ do
+        aws
 
 mkEnv :: Logger -> Manager -> JournalOpts -> IO Env
 mkEnv lgr mgr opts = do
     let g = Logger.clone (Just "aws.galley") lgr
     e <- configure <$> mkAwsEnv g
-    q <- getQueueUrl e (opts^.queueName)
+    q' <- getQueueUrl e (opts^.queueName)
+    -- docker run -d -p 4568:4568 --name fake-sqs airdock/fake-sqs
+    -- curl http://localhost:4568 -d "Action=CreateQueue&QueueName=test-queue-1"
+    -- TODO: also use this in the integration test listener
+    let q = QueueUrl "http://localhost:4568/test-queue-1"
+    putStrLn "Normal Queue url"
+    print $ show q'
+    putStrLn "Using queue url:"
+    print $ show q
+
     return (Env e g q (opts^.awsRegion))
   where
     mkAwsEnv g =  set AWS.envLogger (awsLogger g)
@@ -113,7 +129,7 @@ mkEnv lgr mgr opts = do
     -- but is very verbose (and multiline which we don't handle well)
     -- distracting from our own debug logs, so we map amazonka's 'Debug'
     -- level to our 'Trace' level.
-    mapLevel AWS.Debug = Logger.Trace
+    mapLevel AWS.Debug = Logger.Info
     mapLevel AWS.Trace = Logger.Trace
     -- n.b. Errors are either returned or thrown. In both cases they will
     -- already be logged if left unhandled. We don't want errors to be
@@ -149,7 +165,10 @@ mkEnv lgr mgr opts = do
                (return . QueueUrl . view SQS.gqursQueueURL) x
 
 execute :: MonadIO m => Env -> Amazon a -> m a
-execute e m = liftIO $ runResourceT (runReaderT (unAmazon m) e)
+execute e m = do
+    -- Specify a custom SQS endpoint to communicate with:
+
+    liftIO $ runResourceT (runReaderT (unAmazon m) e)
 
 enqueue :: E.TeamEvent -> Amazon ()
 enqueue e = do
@@ -171,3 +190,4 @@ isTimeout (Right _) = pure False
 isTimeout (Left  e) = case e of
     AWS.TransportError (HttpExceptionRequest _ ResponseTimeout) -> pure True
     _                                                           -> pure False
+
