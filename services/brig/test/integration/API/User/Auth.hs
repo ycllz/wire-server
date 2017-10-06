@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE DeriveGeneric              #-}
 
-module API.User.Auth (tests, Config) where
+module API.User.Auth (tests) where
 
 import Bilge hiding (body)
 import Bilge.Assert hiding (assert)
@@ -34,6 +34,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Util
 
+import qualified Brig.Options         as Opts
 import qualified Brig.Types.User.Auth as Auth
 import qualified Brig.Types.Code      as Code
 import qualified Bilge                as Http
@@ -44,26 +45,7 @@ import qualified Data.UUID.V4         as UUID
 
 import qualified Network.Wai.Utilities.Error as Error
 
-data CookieConfig = CookieConfig
-    { limit     :: Int
-    , renew_age :: Int
-    } deriving (Show, Generic)
-
-data ZauthConfig = ZauthConfig
-    { pubkeys  :: FilePath
-    , privkeys :: FilePath
-    } deriving (Show, Generic)
-
-data Config = Config
-    { user_cookie :: CookieConfig
-    , zauth       :: ZauthConfig
-    } deriving (Show, Generic)
-
-instance FromJSON CookieConfig where
-instance FromJSON ZauthConfig where
-instance FromJSON Config where
-
-tests :: Config -> Manager -> Logger -> Brig -> IO TestTree
+tests :: Opts.Opts -> Manager -> Logger -> Brig -> IO TestTree
 tests conf m _ b = do
     z <- mkZAuthEnv conf
     return $ testGroup "auth"
@@ -99,10 +81,11 @@ tests conf m _ b = do
 --------------------------------------------------------------------------------
 -- ZAuth test environment for generating arbitrary tokens.
 
-mkZAuthEnv :: Config -> IO ZAuth.Env
+mkZAuthEnv :: Opts.Opts -> IO ZAuth.Env
 mkZAuthEnv config = do
-    Just (sk :| sks) <- ZAuth.readKeys (privkeys . zauth $ config)
-    Just (pk :| pks) <- ZAuth.readKeys (pubkeys . zauth $ config)
+    let zOpts = Opts.zauth config
+    Just (sk :| sks) <- ZAuth.readKeys $ Opts.privateKeys zOpts
+    Just (pk :| pks) <- ZAuth.readKeys $ Opts.publicKeys zOpts
     ZAuth.mkEnv (sk :| sks) (pk :| pks) ZAuth.defSettings
 
 randomAccessToken :: ZAuth ZAuth.AccessToken
@@ -253,9 +236,9 @@ testLoginFailure brig = do
                 const 403                          === statusCode
                 const (Just "invalid-credentials") === fmap Error.label . decodeBody
 
-testThrottleLogins :: Config -> Brig -> Http ()
+testThrottleLogins :: Opts.Opts -> Brig -> Http ()
 testThrottleLogins conf b = do
-    let l = limit . user_cookie $ conf
+    let (CookieLimit l) = Opts.setUserCookieLimit . Opts.optSettings $ conf
     u <- randomUser b
     let Just e = userEmail u
     replicateM_ l (login b (defEmailLogin e) SessionCookie)
@@ -322,11 +305,12 @@ testUnknownCookie z r = do
         const 403 === statusCode
         const (Just "invalid-credentials") =~= responseBody
 
-testNewPersistentCookie :: Config -> Brig -> Http ()
+testNewPersistentCookie :: Opts.Opts -> Brig -> Http ()
 testNewPersistentCookie config b = do
     u <- randomUser b
-    let minAge = (renew_age . user_cookie) config * 1000000 + 1
-    let Just email = userEmail u
+    let renewAge = Opts.setUserCookieRenewAge . Opts.optSettings $ config
+        minAge = fromIntegral $  renewAge * 1000000 + 1
+        Just email = userEmail u
     _rs <- login b (emailLogin email defPassword (Just "nexus1")) PersistentCookie
         <!! const 200 === statusCode
     let c = decodeCookie _rs
@@ -373,11 +357,12 @@ testNewPersistentCookie config b = do
         [PersistentCookie] @=? map cookieType _cs
         [Nothing] @=? map cookieSucc _cs
 
-testNewSessionCookie :: Config -> Brig -> Http ()
+testNewSessionCookie :: Opts.Opts -> Brig -> Http ()
 testNewSessionCookie config b = do
     u <- randomUser b
-    let minAge = (renew_age . user_cookie) config * 1000000 + 1
-    let Just email = userEmail u
+    let renewAge = Opts.setUserCookieRenewAge . Opts.optSettings $ config
+        minAge = fromIntegral $  renewAge * 1000000 + 1
+        Just email = userEmail u
     _rs <- login b (emailLogin email defPassword (Just "nexus1")) SessionCookie
         <!! const 200 === statusCode
     let c = decodeCookie _rs
@@ -454,13 +439,13 @@ testRemoveCookiesByLabelAndId b = do
     let lbl = cookieLabel c4
     listCookies b (userId u) >>= liftIO . ([lbl] @=?) . map cookieLabel
 
-testTooManyCookies :: Config -> Brig -> Http ()
+testTooManyCookies :: Opts.Opts -> Brig -> Http ()
 testTooManyCookies config b = do
-    let l = limit . user_cookie $ config
     u <- randomUser b
-    let Just e = userEmail u
-    let carry = 4
-    let pwl = emailLogin e defPassword (Just "nexus1")
+    let (CookieLimit l) = Opts.setUserCookieLimit . Opts.optSettings $ config
+        Just e = userEmail u
+        carry = 4
+        pwl = emailLogin e defPassword (Just "nexus1")
     -- Session logins
     tcs <- replicateM (l + carry) $ (decodeCookie <$> login b pwl SessionCookie) <* wait
     cs <- listCookies b (userId u)

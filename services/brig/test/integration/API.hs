@@ -1,8 +1,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TupleSections              #-}
-{-# LANGUAGE DeriveGeneric              #-}
 
-module API (tests, ConnectionLimit (..), Config) where
+module API (tests, ConnectionLimit (..)) where
 
 import Bilge hiding (accept, timeout)
 import Bilge.Assert
@@ -33,9 +32,7 @@ import Data.Monoid ((<>))
 import Data.Range (unsafeRange)
 import Data.Text (Text)
 import Data.Vector (Vector)
-import Data.Word
 import Galley.Types
-import GHC.Generics
 import Gundeck.Types.Notification
 import Gundeck.Types.Push.V2
 import OpenSSL.EVP.Digest (getDigestByName, digestBS)
@@ -43,12 +40,12 @@ import Test.Tasty hiding (Timeout)
 import Test.Tasty.Cannon hiding (Cannon)
 import Test.Tasty.HUnit
 import Safe
-import System.Environment (getEnv)
 import System.Random (randomIO)
 import Web.Cookie (parseSetCookie, setCookieName)
 import Util
 
 import qualified API.Search.Util             as Search
+import qualified Brig.Options                as Brig
 import qualified Data.ByteString.Char8       as C
 import qualified Data.List1                  as List1
 import qualified Data.Set                    as Set
@@ -61,18 +58,12 @@ import qualified Data.Vector                 as Vec
 import qualified Network.Wai.Utilities.Error as Error
 import qualified Test.Tasty.Cannon           as WS
 
-newtype ConnectionLimit = ConnectionLimit Word16
+newtype ConnectionLimit = ConnectionLimit Int64
 
-data Config = Config
-    { connection_limit :: Word16
-    } deriving (Show, Generic)
-
-instance FromJSON Config where
-
-tests :: Config -> Manager -> Brig -> Cannon -> Galley -> IO TestTree
+tests :: Brig.Opts -> Manager -> Brig -> Cannon -> Galley -> IO TestTree
 tests conf p b c g = do
     -- TODO: pass in whole config
-    let l = ConnectionLimit (connection_limit conf)
+    let l = ConnectionLimit $ Brig.setUserMaxConnections . Brig.optSettings $ conf
     return $ testGroup "user"
         [ testGroup "account"
             [ test p "post /register - 201"                     $ testCreateUser b g

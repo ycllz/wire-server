@@ -19,7 +19,10 @@ import Brig.Options
 import Brig.Template
 import Brig.Types
 import Data.Misc (HttpsUrl)
+import Data.Maybe
 import Data.Monoid
+import Data.Text (unpack)
+import Network.URI (URI, parseURI)
 
 import qualified Data.Text.Encoding as Text
 
@@ -51,7 +54,7 @@ data ApprovalConfirmEmailTemplate = ApprovalConfirmEmailTemplate
     , approvalConfirmEmailBodyText   :: !Template
     , approvalConfirmEmailBodyHtml   :: !Template
     , approvalConfirmEmailSender     :: !Email
-    , approvalConfirmEmailHomeUrl    :: !HttpsUrl
+    , approvalConfirmEmailHomeUrl    :: !URI
     }
 
 -- TODO
@@ -64,30 +67,33 @@ data ApprovalConfirmEmailTemplate = ApprovalConfirmEmailTemplate
 --     }
 
 loadProviderTemplates :: Opts -> IO (Localised ProviderTemplates)
-loadProviderTemplates o = readLocalesDir defLocale templateDir $ \fp ->
+loadProviderTemplates o = readLocalesDir defLocale templates $ \fp ->
     ProviderTemplates
         <$> (ActivationEmailTemplate activationUrl
                 <$> readTemplate (fp <> "/email/activation-subject.txt")
                 <*> readTemplate (fp <> "/email/activation.txt")
                 <*> readTemplate (fp <> "/email/activation.html")
-                <*> pure (optEmailSender o))
-        <*> (ApprovalRequestEmailTemplate approvalUrl
+                <*> pure (emailSender gOptions))
+        <*> (ApprovalRequestEmailTemplate approvalUrl'
                 <$> readTemplate (fp <> "/email/approval-request-subject.txt")
                 <*> readTemplate (fp <> "/email/approval-request.txt")
                 <*> readTemplate (fp <> "/email/approval-request.html")
-                <*> pure (optEmailSender o)
-                <*> pure (optProviderApprovalTo o))
+                <*> pure (emailSender gOptions)
+                <*> pure (approvalTo pOptions))
         <*> (ApprovalConfirmEmailTemplate
                 <$> readTemplate (fp <> "/email/approval-confirm-subject.txt")
                 <*> readTemplate (fp <> "/email/approval-confirm.txt")
                 <*> readTemplate (fp <> "/email/approval-confirm.html")
-                <*> pure (optEmailSender o)
-                <*> pure (optProviderHomeUrl o))
+                <*> pure (emailSender gOptions)
+                <*> maybe (fail "Bad URL") pure maybeUrl)
   where
-    templateDir = optTemplateDir o <> "/provider"
-    defLocale   = setDefaultLocale (optSettings o)
+    maybeUrl  = parseURI . unpack $ homeUrl pOptions
+    gOptions  = general $ emailSMS o
+    pOptions  = provider $ emailSMS o
+    templates = templateDir gOptions <> "/provider"
+    defLocale = setDefaultLocale (optSettings o)
 
     -- URL templates
-    activationUrl = template . Text.decodeLatin1 $ optProviderActivationUrl o
-    approvalUrl   = template . Text.decodeLatin1 $ optProviderApprovalUrl o
+    activationUrl = template $ providerActivationUrl pOptions
+    approvalUrl'   = template $ approvalUrl pOptions
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeOperators              #-}
@@ -62,6 +63,8 @@ module Brig.ZAuth
 import Control.Lens ((^.), makeLenses, over)
 import Control.Monad.IO.Class
 import Control.Monad.Reader
+import Data.Aeson
+import Data.Aeson.Types
 import Data.Bits
 import Data.ByteString.Conversion.To
 import Data.Id
@@ -70,6 +73,7 @@ import Data.Time.Clock
 import Data.Time.Clock.POSIX
 import Data.Word
 import Data.ZAuth.Token
+import GHC.Generics
 import OpenSSL.Random
 import Sodium.Crypto.Sign
 
@@ -96,7 +100,7 @@ data Settings = Settings
     , _sessionTokenTimeout  :: !SessionTokenTimeout
     , _accessTokenTimeout   :: !AccessTokenTimeout
     , _providerTokenTimeout :: !ProviderTokenTimeout
-    }
+    } deriving (Show, Generic)
 
 defSettings :: Settings
 defSettings = Settings 1
@@ -118,15 +122,35 @@ type BotToken      = Token Bot
 
 newtype UserTokenTimeout = UserTokenTimeout
     { userTokenTimeoutSeconds :: Integer }
+    deriving (Show, Generic)
 
 newtype SessionTokenTimeout = SessionTokenTimeout
     { sessionTokenTimeoutSeconds :: Integer }
+    deriving (Show, Generic)
 
 newtype AccessTokenTimeout = AccessTokenTimeout
     { accessTokenTimeoutSeconds :: Integer }
+    deriving (Show, Generic)
 
 newtype ProviderTokenTimeout = ProviderTokenTimeout
     { providerTokenTimeoutSeconds :: Integer }
+    deriving (Show, Generic)
+
+instance FromJSON UserTokenTimeout where
+instance FromJSON SessionTokenTimeout where
+instance FromJSON AccessTokenTimeout where
+instance FromJSON ProviderTokenTimeout where
+
+instance FromJSON Settings where
+  parseJSON (Object v) =
+    Settings <$>
+    v .: "keyIndex" <*>
+    (UserTokenTimeout <$> v .: "userTokenTimeout") <*>
+    (SessionTokenTimeout <$> v .: "sessionTokenTimeout") <*>
+    (AccessTokenTimeout <$> v .: "accessTokenTimeout") <*>
+    (ProviderTokenTimeout <$> v .: "providerTokenTimeout")
+  parseJSON v =
+    typeMismatch "zauthSettings" v
 
 makeLenses ''Settings
 makeLenses ''Env

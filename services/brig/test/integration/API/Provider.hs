@@ -2,9 +2,8 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
-{-# LANGUAGE DeriveGeneric     #-}
 
-module API.Provider (tests, Config) where
+module API.Provider (tests) where
 
 import Bilge hiding (accept, timeout, head)
 import Bilge.Assert
@@ -35,7 +34,6 @@ import Galley.Types (NewConv (..), Conversation (..), Members (..))
 import Galley.Types (ConvMembers (..), OtherMember (..))
 import Galley.Types (Event (..), EventType (..), EventData (..), OtrMessage (..))
 import Galley.Types.Bot (ServiceRef, newServiceRef, serviceRefId, serviceRefProvider)
-import GHC.Generics
 import Gundeck.Types.Notification
 import Network.HTTP.Types.Status (status200, status201, status400)
 import Network.Socket (close)
@@ -45,11 +43,11 @@ import OpenSSL.RSA (generateRSAKey')
 import Test.Tasty hiding (Timeout)
 import Test.Tasty.HUnit
 import Text.Printf (printf)
-import System.Environment
 import Web.Cookie (SetCookie (..), parseSetCookie)
 import Util
 
 import qualified Brig.Code                    as Code
+import qualified Brig.Options                 as Brig
 import qualified Brig.Types.Provider.External as Ext
 import qualified Cassandra                    as DB
 import qualified Control.Concurrent.Async     as Async
@@ -68,16 +66,8 @@ import qualified Network.Wai.Handler.WarpTLS  as Warp
 import qualified Network.Wai.Route            as Wai
 import qualified Test.Tasty.Cannon            as WS
 
-data Config = Config
-    { pubkey  :: FilePath
-    , privkey :: FilePath
-    , cert    :: FilePath
-    } deriving (Show, Generic)
-
-instance FromJSON Config where
-
-tests :: Config -> Manager -> DB.ClientState -> Brig -> Cannon -> Galley -> IO TestTree
-tests conf p db b c g =
+tests :: Brig.Opts -> FilePath -> Manager -> DB.ClientState -> Brig -> Cannon -> Galley -> IO TestTree
+tests conf cert p db b c g =
     return $ testGroup "provider"
         [ testGroup "account"
             [ test p "register" $ testRegisterProvider db b
@@ -94,8 +84,8 @@ tests conf p db b c g =
             , test p "delete"                 $ testDeleteService conf db b
             ]
         , testGroup "bot"
-            [ test p "add-remove" $ testAddRemoveBot conf db b g c
-            , test p "message"    $ testMessageBot conf db b g c
+            [ test p "add-remove" $ testAddRemoveBot conf cert db b g c
+            , test p "message"    $ testMessageBot conf cert db b g c
             ]
         ]
 
@@ -204,7 +194,7 @@ testDeleteProvider db brig = do
 -------------------------------------------------------------------------------
 -- Provider Services
 
-testAddGetServiceBadKey :: Config -> DB.ClientState -> Brig -> Http ()
+testAddGetServiceBadKey :: Brig.Opts -> DB.ClientState -> Brig -> Http ()
 testAddGetServiceBadKey config db brig = do
     prv <- randomProvider db brig
     let pid = providerId prv
@@ -215,7 +205,7 @@ testAddGetServiceBadKey config db brig = do
     let newBad = new { newServiceKey = ServiceKeyPEM k }
     addService brig pid newBad !!! const 400 === statusCode
 
-testAddGetService :: Config -> DB.ClientState -> Brig -> Http ()
+testAddGetService :: Brig.Opts -> DB.ClientState -> Brig -> Http ()
 testAddGetService config db brig = do
     prv <- randomProvider db brig
     let pid = providerId prv
@@ -252,7 +242,7 @@ testAddGetService config db brig = do
     -- TODO: Check that disabled services can not be found via tag search?
     --       Need to generate a unique service name for that.
 
-testUpdateService :: Config -> DB.ClientState -> Brig -> Http ()
+testUpdateService :: Brig.Opts -> DB.ClientState -> Brig -> Http ()
 testUpdateService config db brig = do
     prv <- randomProvider db brig
     let pid = providerId prv
@@ -286,7 +276,7 @@ testUpdateService config db brig = do
         let Just _svc = decodeBody _rs
         liftIO $ assertEqual "tags" t (serviceTags _svc)
 
-testUpdateServiceConn :: Config -> DB.ClientState -> Brig -> Http ()
+testUpdateServiceConn :: Brig.Opts -> DB.ClientState -> Brig -> Http ()
 testUpdateServiceConn config db brig = do
     prv <- randomProvider db brig
     let pid = providerId prv
@@ -314,7 +304,7 @@ testUpdateServiceConn config db brig = do
         assertEqual "token" newTokens (serviceTokens _svc)
         assertBool  "enabled" (serviceEnabled _svc)
 
-testListServicesByTag :: Config -> DB.ClientState -> Brig -> Http ()
+testListServicesByTag :: Brig.Opts -> DB.ClientState -> Brig -> Http ()
 testListServicesByTag config db brig = do
     prv <- randomProvider db brig
     let pid = providerId prv
@@ -417,7 +407,7 @@ testListServicesByTag config db brig = do
 
     select f = map snd . filter (f . fst) . zip [(1 :: Int)..]
 
-testDeleteService :: Config -> DB.ClientState -> Brig -> Http ()
+testDeleteService :: Brig.Opts -> DB.ClientState -> Brig -> Http ()
 testDeleteService config db brig = do
     prv <- randomProvider db brig
     let pid = providerId prv
@@ -431,8 +421,8 @@ testDeleteService config db brig = do
     getServiceProfile brig uid pid sid !!!
         const 404 === statusCode
 
-testAddRemoveBot :: Config -> DB.ClientState -> Brig -> Galley -> Cannon -> Http ()
-testAddRemoveBot config db brig galley cannon = withTestService config db brig defServiceApp $ \sref buf -> do
+testAddRemoveBot :: Brig.Opts -> FilePath -> DB.ClientState -> Brig -> Galley -> Cannon -> Http ()
+testAddRemoveBot config cert db brig galley cannon = withTestService config cert db brig defServiceApp $ \sref buf -> do
     let pid = sref^.serviceRefProvider
     let sid = sref^.serviceRefId
 
@@ -519,8 +509,8 @@ testAddRemoveBot config db brig galley cannon = withTestService config db brig d
     -- Check that the bot no longer has access to the conversation
     getBotConv galley bid cid !!! const 404 === statusCode
 
-testMessageBot :: Config -> DB.ClientState -> Brig -> Galley -> Cannon -> Http ()
-testMessageBot config db brig galley cannon = withTestService config db brig defServiceApp $ \sref buf -> do
+testMessageBot :: Brig.Opts -> FilePath -> DB.ClientState -> Brig -> Galley -> Cannon -> Http ()
+testMessageBot config cert db brig galley cannon = withTestService config cert db brig defServiceApp $ \sref buf -> do
     let pid = sref^.serviceRefProvider
     let sid = sref^.serviceRefId
 
@@ -879,9 +869,9 @@ enableService brig pid sid = do
     updateServiceConn brig pid sid upd !!!
         const 200 === statusCode
 
-defNewService :: MonadIO m => Config -> m NewService
+defNewService :: MonadIO m => Brig.Opts -> m NewService
 defNewService config = liftIO $ do
-    key <- readServiceKey (pubkey config)
+    key <- readServiceKey $ Brig.publicKeys . Brig.zauth $ config
     return NewService
         { newServiceName   = defServiceName
         , newServiceDescr  = defServiceDescr
@@ -953,13 +943,14 @@ waitFor t f ma = do
 
 -- | Run a test case with an external service application.
 withTestService
-    :: Config
+    :: Brig.Opts
+    -> FilePath
     -> DB.ClientState
     -> Brig
     -> (Chan e -> Application)
     -> (ServiceRef -> Chan e -> Http a)
     -> Http a
-withTestService config db brig mkApp go = bracket
+withTestService config cert db brig mkApp go = bracket
     (liftIO Warp.openFreePort)
     (liftIO . close . snd)
     (\(_port, sock) -> do
@@ -977,9 +968,8 @@ withTestService config db brig mkApp go = bracket
         return (newServiceRef sid pid)
 
     runService sref sock = do
-        let key = privkey config
-        let crt = cert config 
-        let tlss = Warp.tlsSettings crt key
+        let key = Brig.publicKeys . Brig.zauth $ config
+        let tlss = Warp.tlsSettings cert key
         let defs = Warp.defaultSettings
         buf <- liftIO newChan
         srv <- liftIO . Async.async $

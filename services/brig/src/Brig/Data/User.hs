@@ -39,7 +39,7 @@ module Brig.Data.User
 
 import Brig.App (AppIO, settings)
 import Brig.Data.Instances ()
-import Brig.Options
+import Brig.Options hiding (settings)
 import Brig.Password
 import Brig.Types
 import Brig.Types.Intra

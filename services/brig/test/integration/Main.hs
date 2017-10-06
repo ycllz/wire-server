@@ -8,6 +8,7 @@ import Cassandra as Cql
 import Cassandra.Settings as Cql
 import Data.Aeson
 import Data.ByteString.Char8 (pack)
+import Data.Text (unpack)
 import Data.Word
 import Data.Yaml (decodeFileEither, ParseException)
 import GHC.Generics
@@ -22,58 +23,44 @@ import qualified API.Search    as Search
 import qualified API.Team      as Team
 import qualified API.TURN      as TURN
 import qualified API.User.Auth as UserAuth
+import qualified Brig.Options  as Opts
 import qualified System.Logger as Logger
 
 -- TODO: move to common lib
-data Endpoint = Endpoint
-  { epHost :: String
-  , epPort :: Word16
-  } deriving (Show, Generic)
+
+data Endpoint = Endpoint String Word16
+  deriving (Show, Generic)
 
 data Config = Config
   -- internal endpoints
   { confBrig      :: Endpoint
   , confCannon    :: Endpoint
   , confGalley    :: Endpoint
-  , confTurnFile  :: FilePath
 
-  -- databases
-  , confCassandra :: Endpoint
-
-  -- test specific settings
-  , auth     :: UserAuth.Config
-  , provider :: Provider.Config
-  , user     :: User.Config
+  , cert          :: FilePath
   } deriving (Show, Generic)
 
 instance FromJSON Endpoint
 instance FromJSON Config
 
-decodeConfigFile :: FilePath -> IO (Either ParseException Config)
+decodeConfigFile :: (FromJSON c) => FilePath -> IO (Either ParseException c)
 decodeConfigFile = decodeFileEither
 
-withConfig :: FilePath -> (Config -> IO ()) -> IO ()
-withConfig path run = do
-  config <- decodeConfigFile path
-  case config of
-    Left err -> print err
-    Right conf -> run conf
-
-runTests :: Config -> IO ()
-runTests config = do
-    let brig      = mkRequest $ confBrig config
-        cannon    = mkRequest $ confCannon config
-        galley    = mkRequest $ confGalley config
-        turnFile  = confTurnFile config
-        cassandra = confCassandra config
+runTests :: (Config, Opts.Opts) -> IO ()
+runTests (iConf, bConf) = do
+    let brig      = mkRequest $ confBrig iConf
+        cannon    = mkRequest $ confCannon iConf
+        galley    = mkRequest $ confGalley iConf
+        turnFile  = Opts.servers . Opts.turn $ bConf
+        cassandra = Opts.endpoint . Opts.cassandra $ bConf
 
     lg <- Logger.new Logger.defSettings
     db <- initCassandra cassandra lg
     mg <- newManager tlsManagerSettings
 
-    userApi     <- User.tests (user config) mg brig cannon galley
-    userAuthApi <- UserAuth.tests (auth config) mg lg brig
-    providerApi <- Provider.tests (provider config) mg db brig cannon galley
+    userApi     <- User.tests bConf mg brig cannon galley
+    userAuthApi <- UserAuth.tests bConf mg lg brig
+    providerApi <- Provider.tests bConf (cert iConf) mg db brig cannon galley
     searchApis  <- Search.tests mg brig
     teamApis    <- Team.tests mg brig cannon galley
     turnApi     <- TURN.tests mg brig turnFile
@@ -88,12 +75,19 @@ runTests config = do
         ]
 
 main :: IO ()
-main = withOpenSSL . withConfig "/etc/wire/integration.yaml" $ runTests
+main = withOpenSSL $ do
+  iConf <- decodeConfigFile "/etc/wire/integration.yaml"
+  bConf <- decodeConfigFile "/etc/wire/brig.yaml"
 
-initCassandra :: Endpoint -> Logger -> IO Cql.ClientState
+  let errorOrConfs = (,) <$> iConf <*> bConf
+  case errorOrConfs of
+    Left errs -> print errs
+    Right confs -> runTests confs
+
+initCassandra :: Opts.Endpoint -> Logger -> IO Cql.ClientState
 initCassandra ep lg =
-    Cql.init lg $ Cql.setPortNumber (fromIntegral $ epPort ep)
-                . Cql.setContacts (epHost ep) []
+    Cql.init lg $ Cql.setPortNumber (fromIntegral $ Opts.port ep)
+                . Cql.setContacts (unpack (Opts.host ep)) []
                 . Cql.setKeyspace (Cql.Keyspace "brig_test")
                 $ Cql.defSettings
 
