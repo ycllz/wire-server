@@ -30,7 +30,7 @@ import Gundeck.Aws.Arn
 import Gundeck.Env
 import Gundeck.Monad
 import Gundeck.Push.Native.Types
-import Gundeck.Options (awsArnEnv, notificationTTL)
+import Gundeck.Options (awsArnEnv, notificationTTL, fbPreferNotice)
 import Gundeck.Types
 import Gundeck.Util
 import Network.HTTP.Types
@@ -65,6 +65,7 @@ push (req ::: _) = do
             throwM (Error status500 "server-error" "Server Error")
   where
     pushAny p = do
+        sendNotice <- view (options.fbPreferNotice)
         i <- mkNotificationId
         let pload = p^.pushPayload
         let notif = Notification i (p^.pushTransient) pload
@@ -75,13 +76,13 @@ push (req ::: _) = do
             Stream.add i tgts pload =<< view (options.notificationTTL)
         void . fork $ do
             prs <- Web.push notif tgts (p^.pushOrigin) (p^.pushOriginConnection) (p^.pushConnections)
-            pushNative notif p =<< nativeTargets p prs
+            pushNative sendNotice notif p =<< nativeTargets p prs
 
     mkTarget r = target (r^.recipientId) & targetClients .~ r^.recipientClients
 
-    pushNative notif p rcps
+    pushNative sendNotice notif p rcps
         | ntfTransient notif = pushData p notif rcps
-        | otherwise = case partition (preferNotice (p^.pushOrigin)) rcps of
+        | otherwise = case partition (preferNotice sendNotice (p^.pushOrigin)) rcps of
             (xs, []) -> pushNotice p notif xs
             ([], ys) -> pushData p notif ys
             (xs, ys) -> do
@@ -96,8 +97,8 @@ push (req ::: _) = do
     -- case, which it can combine with fetching the notification in a single
     -- request. We can thus save the effort of encrypting and decrypting native
     -- push payloads to such addresses.
-    preferNotice orig a = isJust (a^.addrFallback)
-                       && orig /= (a^.addrUser)
+    preferNotice sendNotice orig a = sendNotice
+                                  || (isJust (a^.addrFallback) && orig /= (a^.addrUser))
 
     pushNotice _     _   [] = return ()
     pushNotice p notif rcps = do
