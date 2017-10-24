@@ -12,13 +12,13 @@ import Data.ByteString.Conversion
 import Data.Id (UserId, ClientId)
 import Data.List1
 import Data.Foldable (for_)
-import Gundeck.Aws (Endpoint, endpointEnabled, endpointToken, endpointUsers)
+import Gundeck.Aws (SNSEndpoint, endpointEnabled, endpointToken, endpointUsers)
 import Gundeck.Aws.Arn
 import Gundeck.Aws.Sns
 import Gundeck.Env
 import Gundeck.Instances ()
 import Gundeck.Monad
-import Gundeck.Options (notificationTTL)
+import Gundeck.Options (notificationTTL, optSettings)
 import Gundeck.Push.Native.Types
 import Gundeck.Types
 import Gundeck.Util
@@ -91,7 +91,7 @@ onTTLExpired ev = Log.warn $
 
 withEndpoint
     :: Event
-    -> (Endpoint -> [Address "no-keys"] -> Gundeck ())
+    -> (SNSEndpoint -> [Address "no-keys"] -> Gundeck ())
     -> Gundeck ()
 withEndpoint ev f = do
     v <- view awsEnv
@@ -112,7 +112,7 @@ deleteEndpoint ev = do
     v <- view awsEnv
     Aws.execute v (Aws.deleteEndpoint (ev^.evEndpoint))
 
-updateEndpoint :: Event -> Endpoint -> [UserId] -> Gundeck ()
+updateEndpoint :: Event -> SNSEndpoint -> [UserId] -> Gundeck ()
 updateEndpoint ev ep us = do
     logEvent ev $ msg (val "Updating SNS endpoint")
     v <- view awsEnv
@@ -128,7 +128,7 @@ deleteToken u ev tk cl = do
         n = Notification i False p
         r = singleton (target u & targetClients .~ [cl])
     void $ Web.push n r u Nothing Set.empty
-    Stream.add i r p =<< view (options.notificationTTL)
+    Stream.add i r p <$> notificationTTL . optSettings =<< view options
     Push.delete u (t^.tokenTransport) (t^.tokenApp) tk
 
 mkPushToken :: Event -> Token -> ClientId -> PushToken

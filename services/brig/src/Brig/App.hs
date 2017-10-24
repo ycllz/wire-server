@@ -110,6 +110,7 @@ import qualified System.FilePath          as Path
 import qualified System.FSNotify          as FS
 import qualified System.Logger            as Log
 import qualified System.Logger.Class      as LC
+import qualified Util.Options.Common      as Opt
 
 schemaVersion :: Int32
 schemaVersion = 43

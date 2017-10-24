@@ -4,13 +4,16 @@
 module Gundeck.Env where
 
 import Bilge hiding (Request, header, statusCode, options)
-import Cassandra (ClientState)
+import Cassandra (ClientState, Keyspace (..))
 import Control.AutoUpdate
 import Control.Lens (makeLenses, (^.))
 import Data.Int (Int32)
 import Data.Metrics.Middleware (Metrics)
+import Data.Text (unpack)
+import Data.Text.Encoding (encodeUtf8)
 import Data.Time.Clock.POSIX
-import Gundeck.Options
+import Util.Options.Common as C
+import Gundeck.Options as Opt
 import Gundeck.Types.Presence (Milliseconds (..))
 import Network.HTTP.Client (responseTimeoutMicro)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
@@ -46,20 +49,38 @@ makeLenses ''Env
 schemaVersion :: Int32
 schemaVersion = 7
 
+-- initCassandra :: Opts -> Logger -> IO Cas.ClientState
+-- initCassandra o g = do
+--     c <- maybe (return $ NE.fromList [unpack (Opt.host (Opt.endpoint (Opt.cassandra o)))])
+--                (Cas.initialContacts "cassandra_brig")
+--                (unpack <$> Opt.discoUrl o)
+--     p <- Cas.init (Log.clone (Just "cassandra.brig") g)
+--             $ Cas.setContacts (NE.head c) (NE.tail c)
+--             . Cas.setPortNumber (fromIntegral (Opt.port (Opt.endpoint (Opt.cassandra o))))
+--             . Cas.setKeyspace (Keyspace (Opt.keyspace (Opt.cassandra o)))
+--             . Cas.setMaxConnections 4
+--             . Cas.setPoolStripes 4
+--             . Cas.setSendTimeout 3
+--             . Cas.setResponseTimeout 10
+--             . Cas.setProtocolVersion Cas.V3
+--             $ Cas.defSettings
+--     runClient p $ versionCheck schemaVersion
+--     return p
+
 createEnv :: Metrics -> Opts -> IO Env
 createEnv m o = do
     l <- new $ setOutput StdOut . setFormat Nothing $ defSettings
-    c <- maybe (return $ NE.fromList [o^.cassHost])
+    c <- maybe (return $ NE.fromList [unpack (C.host (C.endpoint (Opt.cassandra o)))])
                (C.initialContacts "cassandra_gundeck")
-               (o^.discoUrl)
+               (unpack <$> Opt.discoUrl o)
     n <- newManager tlsManagerSettings
-            { managerConnCount           = o^.httpPoolSize
-            , managerIdleConnectionCount = 3 * (o^.httpPoolSize)
+            { managerConnCount           = httpPoolSize (optSettings o)
+            , managerIdleConnectionCount = 3 * (httpPoolSize $ optSettings o)
             , managerResponseTimeout     = responseTimeoutMicro 5000000
             }
     r <- Redis.mkPool (Logger.clone (Just "redis.gundeck") l) $
-              Redis.setHost (o^.redisHost)
-            . Redis.setPort (o^.redisPort)
+              Redis.setHost (unpack $ C.host $ redis o)
+            . Redis.setPort (C.port $ redis o)
             . Redis.setMaxConnections 100
             . Redis.setPoolStripes 4
             . Redis.setConnectTimeout 3
@@ -67,8 +88,8 @@ createEnv m o = do
             $ Redis.defSettings
     p <- C.init (Logger.clone (Just "cassandra.gundeck") l) $
               C.setContacts (NE.head c) (NE.tail c)
-            . C.setPortNumber (fromIntegral $ o^.cassPort)
-            . C.setKeyspace (o^.keyspace)
+            . C.setPortNumber (fromIntegral $ C.port (C.endpoint (Opt.cassandra o)))
+            . C.setKeyspace (Keyspace (C.keyspace (Opt.cassandra o)))
             . C.setMaxConnections 4
             . C.setMaxStreams 128
             . C.setPoolStripes 4
@@ -87,9 +108,9 @@ createEnv m o = do
 
 initFallbackQueue :: Opts -> IO Fallback.Queue
 initFallbackQueue o =
-    let delay = Fallback.Delay (o^.fbQueueDelay)
-        limit = Fallback.Limit (o^.fbQueueLimit)
-        burst = Fallback.Burst (o^.fbQueueBurst)
+    let delay = Fallback.Delay (queueDelay $ fallback o)
+        limit = Fallback.Limit (queueLimit $ fallback o)
+        burst = Fallback.Burst (queueBurst $ fallback o)
     in Fallback.newQueue delay limit burst
 
 reqIdMsg :: RequestId -> Msg -> Msg

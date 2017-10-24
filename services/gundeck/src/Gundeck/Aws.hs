@@ -21,7 +21,7 @@ module Gundeck.Aws
     , PublishError        (..)
 
       -- * Endpoints
-    , Endpoint
+    , SNSEndpoint
     , endpointToken
     , endpointEnabled
     , endpointUsers
@@ -66,7 +66,7 @@ import Data.Typeable
 import Gundeck.Aws.Arn
 import Gundeck.Aws.Sns (Event, evType, evEndpoint)
 import Gundeck.Instances ()
-import Gundeck.Options
+import qualified Gundeck.Options as O
 import Gundeck.Types.Push (AppName (..), Transport (..), Token)
 import Network.AWS (AWSRequest, Rs)
 import Network.AWS (serviceCode, serviceMessage, serviceAbbrev, serviceStatus)
@@ -112,14 +112,14 @@ data Env = Env
     , _account    :: !Account
     }
 
-data Endpoint = Endpoint
+data SNSEndpoint = SNSEndpoint
     { _endpointToken   :: !Push.Token
     , _endpointEnabled :: !Bool
     , _endpointUsers   :: !(Set UserId)
     } deriving Show
 
 makeLenses ''Env
-makeLenses ''Endpoint
+makeLenses ''SNSEndpoint
 
 newtype Amazon a = Amazon
     { unAmazon :: ReaderT Env (ResourceT IO) a
@@ -146,15 +146,15 @@ instance MonadBaseControl IO Amazon where
 instance AWS.MonadAWS Amazon where
     liftAWS aws = view awsEnv >>= \e -> AWS.runAWS e aws
 
-mkEnv :: Logger -> Opts -> Manager -> IO Env
+mkEnv :: Logger -> O.Opts -> Manager -> IO Env
 mkEnv lgr opts mgr = do
     let g = Logger.clone (Just "aws.gundeck") lgr
     e <- configure <$> mkAwsEnv g
-    q <- getQueueUrl e (opts^.queueName)
-    return (Env e g q (opts^.awsRegion) (opts^.awsAccount))
+    q <- getQueueUrl e (O.queueName $ O.aws opts)
+    return (Env e g q (O.region $ O.aws opts) (O.account $ O.aws opts))
   where
     mkAwsEnv g =  set AWS.envLogger (awsLogger g)
-               .  set AWS.envRegion (opts^.awsRegion)
+               .  set AWS.envRegion (O.region $ O.aws opts)
               <$> AWS.newEnvWith AWS.Discover Nothing mgr
 
     awsLogger g l = Logger.log g (mapLevel l) . Logger.msg . toLazyByteString
@@ -244,7 +244,7 @@ deleteEndpoint arn = do
   where
     req = SNS.deleteEndpoint (toText arn)
 
-lookupEndpoint :: EndpointArn -> Amazon (Maybe Endpoint)
+lookupEndpoint :: EndpointArn -> Amazon (Maybe SNSEndpoint)
 lookupEndpoint arn = do
     res <- retrying (limitRetries 1) (const isTimeout) (const (sendCatch req))
     let attrs = view SNS.gearsAttributes <$> res
@@ -258,15 +258,15 @@ lookupEndpoint arn = do
         t <- maybe (throwM $ NoToken arn) return (Map.lookup "Token" a)
         let e = either (const Nothing) Just . fromText =<< Map.lookup "Enabled" a
             d = maybe Set.empty mkUsers $ Map.lookup "CustomUserData" a
-        return (Endpoint (Push.Token t) (fromMaybe False e) d)
+        return (SNSEndpoint (Push.Token t) (fromMaybe False e) d)
 
     mkUsers = Set.fromList . mapMaybe (hush . fromText) . Text.split (== ':')
 
 createEndpoint :: UserId -> Push.Transport -> ArnEnv -> AppName -> Push.Token -> Amazon (Either CreateEndpointError EndpointArn)
 createEndpoint u tr env app token = do
-    aws <- ask
+    awsEnv <- ask
     let top = mkAppTopic env tr app
-    let arn = mkSnsArn (aws^.region) (aws^.account) top
+    let arn = mkSnsArn (awsEnv^.region) (awsEnv^.account) top
     let tkn = Push.tokenText token
     let req = SNS.createPlatformEndpoint (toText arn) tkn
             & set SNS.cpeCustomUserData (Just (toText u))

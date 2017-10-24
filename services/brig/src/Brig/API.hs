@@ -44,6 +44,7 @@ import Network.Wai.Utilities
 import Network.Wai.Utilities.Server
 import Network.Wai.Utilities.Swagger (document, mkSwaggerApi)
 import Prelude hiding (head)
+import Util.Options.Common
 
 import qualified Data.Text.Ascii               as Ascii
 import qualified Data.List1                    as List1

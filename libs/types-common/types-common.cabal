@@ -42,6 +42,7 @@ library
           Data.Text.Ascii
           Data.UUID.Tagged
           Util.Options
+          Util.Options.Common
 
     build-depends:
           attoparsec            >= 0.11
