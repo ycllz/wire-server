@@ -92,8 +92,8 @@ parseConfigPaths = do
                  <> value defaultIntPath)
                  <*>
                  (strOption $
-                 long "brig-config-file"
+                 long "gundeck-config-file"
                  <> short 'c'
-                 <> help "Gunbdeck application config to load"
+                 <> help "Gundeck application config to load"
                  <> showDefault
                  <> value defaultBrigPath)
