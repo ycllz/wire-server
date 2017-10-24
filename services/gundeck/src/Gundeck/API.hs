@@ -12,7 +12,6 @@ import Control.Monad
 import Data.Aeson (encode)
 import Data.ByteString (ByteString)
 import Data.Metrics.Middleware
-import Data.Misc
 import Data.Range
 import Data.Swagger.Build.Api hiding (def, min, Response)
 import Data.Text (unpack)

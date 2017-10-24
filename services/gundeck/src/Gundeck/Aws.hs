@@ -264,9 +264,9 @@ lookupEndpoint arn = do
 
 createEndpoint :: UserId -> Push.Transport -> ArnEnv -> AppName -> Push.Token -> Amazon (Either CreateEndpointError EndpointArn)
 createEndpoint u tr env app token = do
-    awsEnv <- ask
+    aEnv <- ask
     let top = mkAppTopic env tr app
-    let arn = mkSnsArn (awsEnv^.region) (awsEnv^.account) top
+    let arn = mkSnsArn (aEnv^.region) (aEnv^.account) top
     let tkn = Push.tokenText token
     let req = SNS.createPlatformEndpoint (toText arn) tkn
             & set SNS.cpeCustomUserData (Just (toText u))

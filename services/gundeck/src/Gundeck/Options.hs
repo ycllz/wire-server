@@ -4,51 +4,14 @@
 
 module Gundeck.Options where
 
--- module Gundeck.Options
---     ( Opts
---     , parseOptions
---     , hostname
---     , serverPort
---     , discoUrl
-
---       -- * Storage
---     , cassHost
---     , cassPort
---     , keyspace
---     , redisHost
---     , redisPort
-
---       -- * AWS
---     , queueName
---     , awsRegion
---     , awsAccount
---     , awsArnEnv
-
---       -- * RPC
---     , httpPoolSize
-
---       -- * Notifications
---     , NotificationTTL (..)
---     , notificationTTL
-
---       -- * Fallback Notification Queue
---     , fbSkipFallbacks
---     , fbQueueLimit
---     , fbQueueDelay
---     , fbQueueBurst
-
-import Cassandra hiding (Error)
-import Control.Lens hiding ((.=))
 import Data.Aeson.Types (typeMismatch)
-import Data.Text (Text, pack)
-import Data.Text.Encoding (encodeUtf8)
 import Data.Maybe (fromMaybe)
-import Data.Misc
 import Data.Monoid
 import Data.Scientific (toBoundedInteger)
 import Data.String
+import Data.Text (Text)
 import Data.Word
-import Data.Yaml (FromJSON(..), (.:), (.:?))
+import Data.Yaml (FromJSON)
 import GHC.Generics
 import Gundeck.Aws.Arn
 import Options.Applicative

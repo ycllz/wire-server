@@ -6,11 +6,10 @@ module Gundeck.Env where
 import Bilge hiding (Request, header, statusCode, options)
 import Cassandra (ClientState, Keyspace (..))
 import Control.AutoUpdate
-import Control.Lens (makeLenses, (^.))
+import Control.Lens (makeLenses)
 import Data.Int (Int32)
 import Data.Metrics.Middleware (Metrics)
 import Data.Text (unpack)
-import Data.Text.Encoding (encodeUtf8)
 import Data.Time.Clock.POSIX
 import Util.Options.Common as C
 import Gundeck.Options as Opt
@@ -48,24 +47,6 @@ makeLenses ''Env
 
 schemaVersion :: Int32
 schemaVersion = 7
-
--- initCassandra :: Opts -> Logger -> IO Cas.ClientState
--- initCassandra o g = do
---     c <- maybe (return $ NE.fromList [unpack (Opt.host (Opt.endpoint (Opt.cassandra o)))])
---                (Cas.initialContacts "cassandra_brig")
---                (unpack <$> Opt.discoUrl o)
---     p <- Cas.init (Log.clone (Just "cassandra.brig") g)
---             $ Cas.setContacts (NE.head c) (NE.tail c)
---             . Cas.setPortNumber (fromIntegral (Opt.port (Opt.endpoint (Opt.cassandra o))))
---             . Cas.setKeyspace (Keyspace (Opt.keyspace (Opt.cassandra o)))
---             . Cas.setMaxConnections 4
---             . Cas.setPoolStripes 4
---             . Cas.setSendTimeout 3
---             . Cas.setResponseTimeout 10
---             . Cas.setProtocolVersion Cas.V3
---             $ Cas.defSettings
---     runClient p $ versionCheck schemaVersion
---     return p
 
 createEnv :: Metrics -> Opts -> IO Env
 createEnv m o = do

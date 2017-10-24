@@ -12,6 +12,7 @@ import Data.ByteString.Conversion
 import Data.Id (UserId, ClientId)
 import Data.List1
 import Data.Foldable (for_)
+import Data.Text (Text)
 import Gundeck.Aws (SNSEndpoint, endpointEnabled, endpointToken, endpointUsers)
 import Gundeck.Aws.Arn
 import Gundeck.Aws.Sns
@@ -22,7 +23,7 @@ import Gundeck.Options (notificationTTL, optSettings)
 import Gundeck.Push.Native.Types
 import Gundeck.Types
 import Gundeck.Util
-import System.Logger.Class (Msg, msg, (.=), (~~), val)
+import System.Logger.Class (Msg, msg, (.=), (~~), val, (+++))
 
 import qualified Data.List                 as List
 import qualified Data.Set                  as Set
@@ -35,12 +36,13 @@ import qualified System.Logger.Class       as Log
 
 onEvent :: Event -> Gundeck ()
 onEvent ev = case ev^.evType of
-    EndpointUpdated                          -> onUpdated ev
-    DeliveryFailure DeliveryInvalidToken     -> onPermFailure ev
-    DeliveryFailure DeliveryEndpointDisabled -> onFailure ev
-    DeliveryFailure DeliveryFailedPerm       -> onPermFailure ev
-    DeliveryFailure DeliveryTTLExpired       -> onTTLExpired ev
-    _                                        -> return ()
+    EndpointUpdated                            -> onUpdated ev
+    DeliveryFailure DeliveryInvalidToken       -> onPermFailure ev
+    DeliveryFailure DeliveryEndpointDisabled   -> onFailure ev
+    DeliveryFailure DeliveryFailedPerm         -> onPermFailure ev
+    DeliveryFailure DeliveryTTLExpired         -> onTTLExpired ev
+    DeliveryFailure (DeliveryUnknownFailure r) -> onUnknownFailure ev r
+    _                                          -> onUnhandledEventType ev
 
 onUpdated :: Event -> Gundeck ()
 onUpdated ev = withEndpoint ev $ \e as ->
@@ -85,6 +87,19 @@ onTTLExpired ev = Log.warn $
        "arn"   .= toText (ev^.evEndpoint)
     ~~ "cause" .= toText (ev^.evType)
     ~~ msg (val "Notification TTL expired")
+
+onUnknownFailure :: Event -> Text -> Gundeck ()
+onUnknownFailure ev r = Log.warn $
+       "arn"   .= toText (ev^.evEndpoint)
+    ~~ "cause" .= toText (ev^.evType)
+    ~~ msg (val "Unknown failure, reason: " +++ r)
+
+onUnhandledEventType :: Event -> Gundeck ()
+onUnhandledEventType ev = Log.warn $
+       "arn"   .= toText (ev^.evEndpoint)
+    ~~ "cause" .= toText (ev^.evType)
+    ~~ msg (val "Unhandled event type")
+
 
 -------------------------------------------------------------------------------
 -- Utilities
