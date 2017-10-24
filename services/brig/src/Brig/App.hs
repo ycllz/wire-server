@@ -242,6 +242,9 @@ replaceTurnServers g ref e = do
 initAws :: Opts -> Logger -> Manager -> IO (Aws.Env, Aws.Config)
 initAws o l m = do
     let a = Opt.aws o
+    -- TODO: The AWS package can also load them from the env, check the latest API
+    -- https://hackage.haskell.org/package/aws-0.17.1/docs/src/Aws-Core.html#loadCredentialsFromFile
+    -- which would avoid the need to specify them in a config file when running tests
     e <- Aws.newEnv l m (liftM2 (,) (Opt.awsKeyId a) (Opt.awsSecretKey a))
     let c = Aws.config (Aws.Account (Opt.account a))
                        (Aws.SesQueue (Opt.sesQueue a))
