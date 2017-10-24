@@ -54,7 +54,7 @@ runTests iConf gConf = do
 
     lg <- Logger.new Logger.defSettings
     db <- initCassandra (Opts.Endpoint casHost casPort) lg
-    tests <- API.tests g c b db
+    tests <- API.tests g c b db 
     defaultMain tests
 
 initCassandra :: Opts.Endpoint -> Logger -> IO Cql.ClientState
