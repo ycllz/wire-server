@@ -3,7 +3,7 @@ module Util.Options where
 import Data.Aeson (FromJSON)
 import Data.Maybe (fromMaybe)
 import Data.Monoid
-import Data.Yaml (ParseException, decodeFileEither)
+import Data.Yaml (decodeFileEither)
 import Options.Applicative
 import System.Directory
 import System.Environment (getArgs)
@@ -11,23 +11,22 @@ import System.IO (hPutStrLn, stderr)
 
 getOptions :: (FromJSON a) => String -> Parser a -> FilePath -> IO a
 getOptions desc parser defaultPath = do
-    path <- parseConfigPath defaultPath (mkDesc desc)
+    path <- parseConfigPath defaultPath mkDesc
     file <- doesFileExist path
     if file
         then do
-            configFile <- decodeConfigFile path
+            configFile <- decodeFileEither path
             case configFile of
-                Left e -> fail $ show e
-                Right opts -> return opts
+                Left e  -> fail $ show e
+                Right o -> return o
         else do
             hPutStrLn stderr $
                 "Config file at " ++
                 path ++
                 " does not exist, falling back to command-line arguments. \n"
-            execParser (info (helper <*> parser) (mkDesc desc))
-
-decodeConfigFile :: (FromJSON a) => FilePath -> IO (Either ParseException a)
-decodeConfigFile = decodeFileEither
+            execParser (info (helper <*> parser) mkDesc)
+  where
+    mkDesc = header desc <> fullDesc
 
 parseConfigPath :: FilePath -> InfoMod String -> IO String
 parseConfigPath defaultPath desc = do
@@ -43,6 +42,3 @@ parseConfigPath defaultPath desc = do
         long "config-file" <> short 'c' <> help "Config file to load" <>
         showDefault <>
         value defaultPath
-
-mkDesc :: String -> InfoMod a
-mkDesc desc = header desc <> fullDesc

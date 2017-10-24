@@ -1,19 +1,16 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Util.Options.Common where
 
-import Data.Aeson (FromJSON)
 import Data.ByteString (ByteString)
-import Data.Maybe (fromMaybe)
 import Data.Monoid
 import Data.Text (Text)
 import Data.Word (Word16)
-import Data.Yaml (ParseException, decodeFileEither)
+import Data.Yaml hiding (Parser)
 import GHC.Generics
 import Options.Applicative
-import System.Directory
-import System.Environment (getArgs)
-import System.IO (hPutStrLn, stderr)
+import System.Environment
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Text             as T
@@ -31,6 +28,11 @@ data CassandraOpts = CassandraOpts
     } deriving (Show, Generic)
 
 instance FromJSON CassandraOpts
+
+optOrEnv :: (a -> b) -> (Maybe a) -> (String -> b) -> String -> IO b
+optOrEnv getter conf reader var = case conf of
+    Nothing -> reader <$> getEnv var
+    Just c  -> pure $ getter c
 
 bytesOption :: Mod OptionFields String -> Parser ByteString
 bytesOption = fmap C.pack . strOption

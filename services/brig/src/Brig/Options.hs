@@ -25,7 +25,6 @@ import GHC.Generics
 import Network.HTTP.Client (Request, parseRequest)
 import Options.Applicative
 import Options.Applicative.Types (readerAsk)
-import System.Environment
 import Util.Options.Common
 
 import qualified Data.Text             as T
@@ -407,9 +406,3 @@ toNexmoEndpoint =
 requestUrl :: ReadM Request
 requestUrl =
     readerAsk >>= maybe (fail "Invalid request URL") pure . parseRequest
-
-optOrEnv :: (a -> b) -> (Maybe a) -> (String -> b) -> String -> IO b
-optOrEnv getter conf reader var =
-    case conf of
-        Nothing -> reader <$> getEnv var
-        Just c -> pure $ getter c

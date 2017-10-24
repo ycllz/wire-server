@@ -1,13 +1,11 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 module Gundeck.Options where
 
-import Data.Aeson.Types (typeMismatch)
-import Data.Maybe (fromMaybe)
 import Data.Monoid
-import Data.Scientific (toBoundedInteger)
 import Data.String
 import Data.Text (Text)
 import Data.Word
@@ -18,30 +16,9 @@ import Options.Applicative
 import Options.Applicative.Types
 import Util.Options.Common
 
-import qualified Data.Yaml as Y
-
-defaultNotificationTLL :: Word32
-defaultNotificationTLL = 86400
-defaultHttpPoolSize :: Int
-defaultHttpPoolSize = 128
-
 newtype NotificationTTL = NotificationTTL
     { notificationTTLSeconds :: Word32 }
-    deriving (Eq, Ord, Show)
-
-instance FromJSON NotificationTTL where
-  parseJSON (Y.Number n) =
-    let bounded = toBoundedInteger n :: Maybe Word32
-    in pure $ NotificationTTL $ fromMaybe defaultNotificationTLL bounded
-  parseJSON v = typeMismatch "notificationTTL" v
-
-instance FromJSON ArnEnv where
-  parseJSON (Y.String s) = pure $ ArnEnv s
-  parseJSON v            = typeMismatch "arnEnv" v
-
-instance FromJSON Account where
-  parseJSON (Y.String s) = pure $ Account s
-  parseJSON v            = typeMismatch "account" v
+    deriving (Eq, Ord, Show, Generic, FromJSON)
 
 data AWSOpts = AWSOpts
     { account   :: !Account
@@ -125,14 +102,12 @@ optsParser = Opts <$>
             long "aws-account"
             <> metavar "STRING"
             <> help "aws account")
-
         <*> 
         (option parseRegion $
             long "aws-region"
             <> metavar "STRING"
             <> help "aws region name")
-
-        <*> 
+        <*>
         (fmap ArnEnv . textOption $
             long "aws-arn-env"
             <> metavar "STRING"
@@ -186,13 +161,13 @@ optsParser = Opts <$>
             <> metavar "SIZE"
             <> showDefault
             <> help "number of connections for the http client pool"
-            <> value defaultHttpPoolSize)
+            <> value 128)
         <*>
         (fmap NotificationTTL . option auto $
             long "notification-ttl"
             <> metavar "SIZE"
             <> showDefault
             <> help "TTL (seconds) of stored notifications"
-            <> value defaultNotificationTLL)
+            <> value 86400)
 
     parseRegion = readerAsk >>= either readerError return . fromText . fromString

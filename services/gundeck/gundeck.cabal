@@ -94,7 +94,6 @@ library
         , redis-io              >= 0.4
         , resourcet             >= 1.1
         , retry                 >= 0.5
-        , scientific            >= 0.3.4
         , semigroups            >= 0.12
         , singletons            >= 1.0
         , split                 >= 0.2
@@ -237,12 +236,14 @@ executable gundeck-integration
       , gundeck-types
       , http-client
       , http-client-tls
+      , HsOpenSSL
       , HUnit
       , lens
       , lens-aeson
       , mtl
       , network
       , network-uri
+      , optparse-applicative
       , QuickCheck
       , random
       , retry
@@ -259,3 +260,4 @@ executable gundeck-integration
       , uuid
       , vector
       , websockets            >= 0.8
+      , yaml
