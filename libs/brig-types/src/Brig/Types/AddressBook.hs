@@ -10,13 +10,9 @@ import Data.Aeson
 import Data.ByteString (ByteString)
 import Data.Id
 import Data.Json.Util
-import Data.Text (Text)
 
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.Text.Encoding     as T
-
-newtype CardId = CardId Text
-    deriving (Eq, Show, Ord, FromJSON, ToJSON)
 
 -- The base64-encoded SHA-256 of an email address or a phone number
 newtype Entry = Entry { abEntrySha256 :: ByteString }
@@ -31,19 +27,16 @@ instance ToJSON Entry where
     toJSON = String . T.decodeUtf8 . B64.encode . abEntrySha256
 
 data Card = Card
-    { cCardId  :: !(Maybe CardId) -- Random card identifier, defined by clients
-    , cEntries :: ![Entry]
+    { cEntries :: ![Entry]
     } deriving (Eq, Show)
 
 instance FromJSON Card where
     parseJSON = withObject "matching-card" $ \o ->
-        Card  <$> o .:? "card_id"
-              <*> o .:  "contact"
+        Card  <$> o .:  "contact"
 
 instance ToJSON Card where
     toJSON c = object
-        [ "card_id" .= cCardId c
-        , "contact" .= cEntries c
+        [ "contact" .= cEntries c
         ]
 
 newtype AddressBook = AddressBook
@@ -63,21 +56,15 @@ instance ToJSON AddressBook where
 
 data Match = Match
     { mUser   :: !UserId
-    , mCardId :: !(Maybe CardId) -- Card id that was matched (Deprecated!)
-    , mCards  :: ![CardId]       -- List of card ids matched
     } deriving (Eq, Ord, Show)
 
 instance FromJSON Match where
     parseJSON = withObject "match" $ \o ->
         Match <$> o .:  "id"
-              <*> o .:? "card_id"
-              <*> o .:? "cards" .!= []
 
 instance ToJSON Match where
     toJSON m = object
         $ "id"      .= mUser m
-        # "card_id" .= mCardId m
-        # "cards"   .= mCards m
         # []
 
 data MatchingResult = MatchingResult

@@ -2112,10 +2112,10 @@ uploadAddressBook b u a m =
     f (MatchingResult x y) = MatchingResult (sort x) (sort y)
 
 -- Builds expectations on the matched users/cards
-toMatchingResult :: [(UserId, Text)] -> MatchingResult
+toMatchingResult :: [UserId] -> MatchingResult
 toMatchingResult xs = MatchingResult
-                      (map (\(u, c) -> Match u (Just (CardId c)) [CardId c]) xs)
-                      (Set.toList $ Set.fromList (map fst xs))
+                      (map Match xs)
+                      (Set.toList $ Set.fromList xs)
 
 -- Hashes each entry and builds an appropriate address book
 toAddressBook :: [(Text, [Text])] -> IO AddressBook
@@ -2123,8 +2123,7 @@ toAddressBook xs = do
     Just sha <- liftIO $ getDigestByName "SHA256"
     return . AddressBook $ fmap (toCard sha) xs
   where
-    toCard sha (cardId, entries) = Card (Just $ CardId cardId)
-                                        (map (Entry . digestBS sha . T.encodeUtf8) entries)
+    toCard sha (cardId, entries) = Card (map (Entry . digestBS sha . T.encodeUtf8) entries)
 
 setHandleAndDeleteUser :: Brig -> Cannon -> User -> [UserId] -> (UserId -> HttpT IO ()) -> Http ()
 setHandleAndDeleteUser brig cannon u others execDelete = do
