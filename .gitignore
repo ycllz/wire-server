@@ -32,3 +32,4 @@ tools/api-simulations/mailboxes.json
 tools/api-simulations/reports
 .DS_Store
 *.tix
+*.pem

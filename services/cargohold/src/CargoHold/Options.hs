@@ -7,7 +7,6 @@ import CargoHold.CloudFront (Domain (..), KeyPairId (..))
 import Control.Applicative
 import Data.Monoid
 import Data.Text (Text)
-import Data.Word
 import Data.Yaml (FromJSON(..))
 import GHC.Generics
 import Options.Applicative

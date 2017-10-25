@@ -24,6 +24,7 @@ library
 
     exposed-modules:
         CargoHold.API
+        CargoHold.Options
 
     other-modules:
         CargoHold.App
@@ -33,7 +34,6 @@ library
         CargoHold.API.V3.Resumable
         CargoHold.CloudFront
         CargoHold.Metrics
-        CargoHold.Options
         CargoHold.S3
         CargoHold.TUS
 
@@ -94,6 +94,7 @@ library
       , wai-utilities        >= 0.16.1
       , warp                 >= 3.0
       , xml-conduit          >= 1.3
+      , yaml                 >= 0.8
 
 executable cargohold
     main-is:            src/Main.hs
@@ -110,6 +111,7 @@ executable cargohold
         base
       , cargohold
       , HsOpenSSL >= 0.11
+      , types-common
 
     if flag(static)
         ld-options: -static
