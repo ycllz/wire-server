@@ -7,11 +7,9 @@ module CargoHold.Options where
 import CargoHold.CloudFront (Domain (..), KeyPairId (..))
 import Control.Applicative
 import Control.Lens
-import Data.Aeson
 import Data.Aeson.TH
 import Data.Monoid
 import Data.Text (Text)
-import Data.Yaml (FromJSON(..))
 import GHC.Generics
 import Options.Applicative
 import Util.Options

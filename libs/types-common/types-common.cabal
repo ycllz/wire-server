@@ -43,6 +43,7 @@ library
           Data.UUID.Tagged
           Util.Options
           Util.Options.Common
+          Util.Test
 
     build-depends:
           attoparsec            >= 0.11
@@ -53,9 +54,8 @@ library
         , bytestring            >= 0.10
         , bytestring-conversion >= 0.2
         , containers            >= 0.5
-        , cryptohash            >= 0.11
---        , cryptohash-md5        >= 0.11.7.2
---        , cryptohash-sha1       >= 0.11.7.2
+        , cryptohash-md5        >= 0.11.7.2
+        , cryptohash-sha1       >= 0.11.7.2
         , deepseq               >= 1.4
         , directory             >= 1.2
         , errors                >= 2.0
@@ -67,6 +67,8 @@ library
         , safe                  >= 0.3
         , singletons            >= 2.0
         , swagger               >= 0.3
+        , tagged                >= 0.8
+        , tasty                 >= 0.11
         , text                  >= 0.11
         , time                  >= 1.6
         , time-locale-compat    >= 0.1

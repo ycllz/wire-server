@@ -20,8 +20,7 @@ import Data.Text.Encoding (decodeLatin1)
 import Data.Time.Clock
 import Data.Time.Format
 import Data.UUID.V4
-import Network.HTTP.Client (parseUrlThrow, responseTimeoutMicro)
-import Network.HTTP.Client.TLS
+import Network.HTTP.Client (parseUrlThrow)
 import Network.HTTP.Types.Header
 import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status (status200, status204)

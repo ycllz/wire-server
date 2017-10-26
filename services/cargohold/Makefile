@@ -25,13 +25,11 @@ init:
 
 .PHONY: install
 install: init
-	#stack install --pedantic --test --local-bin-path=dist
-	stack install --test --local-bin-path=dist
+	stack install --pedantic --test --local-bin-path=dist
 
 .PHONY: compile
 compile:
-	#stack build --pedantic --test --no-copy-bins
-	stack build --test --no-copy-bins
+	stack build --pedantic --test --no-copy-bins
 
 .PHONY: clean
 clean: init

@@ -4,15 +4,10 @@
 
 module Util.Options.Common where
 
-import Control.Lens
 import Data.Aeson.TH
 import Data.ByteString (ByteString)
 import Data.Char (toLower)
-import Data.Monoid
 import Data.Text (Text)
-import Data.Word (Word16)
-import Data.Yaml hiding (Parser)
-import GHC.Generics
 import Options.Applicative
 import System.Environment
 
