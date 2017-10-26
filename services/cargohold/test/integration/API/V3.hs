@@ -72,7 +72,7 @@ tests s = testGroup "v3"
 --------------------------------------------------------------------------------
 -- Simple (single-step) uploads
 
-testSimpleRoundtrip :: CargoHold -> Http ()
+testSimpleRoundtrip :: TestSignature ()
 testSimpleRoundtrip c = do
     uid <- liftIO $ Id <$> nextRandom
     uid2 <- liftIO $ Id <$> nextRandom
@@ -114,7 +114,7 @@ testSimpleRoundtrip c = do
     let utc' = parseTimeOrError False defaultTimeLocale rfc822DateFormat date' :: UTCTime
     liftIO $ assertBool "bad date" (utc' >= utc)
 
-testSimpleTokens :: CargoHold -> Http ()
+testSimpleTokens :: TestSignature ()
 testSimpleTokens c = do
     uid <- liftIO $ Id <$> nextRandom
     uid2 <- liftIO $ Id <$> nextRandom
@@ -187,7 +187,7 @@ testSimpleTokens c = do
 -- S3 closes idle connections after ~5 seconds, before the http-client 'Manager'
 -- does. If such a closed connection is reused for an upload, no problems should
 -- occur (i.e. the closed connection should be detected before sending any data).
-testSimpleS3ClosedConnectionReuse :: CargoHold -> Http ()
+testSimpleS3ClosedConnectionReuse :: TestSignature ()
 testSimpleS3ClosedConnectionReuse c = go >> wait >> go
   where
     wait = liftIO $ putStrLn "Waiting for S3 idle timeout ..." >> threadDelay 7000000
@@ -201,32 +201,32 @@ testSimpleS3ClosedConnectionReuse c = go >> wait >> go
 --------------------------------------------------------------------------------
 -- Resumable (multi-step) uploads
 
-testResumableSmall :: CargoHold -> Http ()
+testResumableSmall :: TestSignature ()
 testResumableSmall c = assertRandomResumable c totalSize chunkSize UploadFull
   where
     totalSize = 100        -- 100 B
     chunkSize = 100 * 1024 -- 100 KiB
 
-testResumableBig :: CargoHold -> Http ()
+testResumableBig :: TestSignature ()
 testResumableBig c = assertRandomResumable c totalSize chunkSize UploadFull
   where
     totalSize = 25 * 1024 * 1024 -- 25 MiB
     chunkSize =  1 * 1024 * 1024 --  1 MiB
 
-testResumableLastSmall :: CargoHold -> Http ()
+testResumableLastSmall :: TestSignature ()
 testResumableLastSmall c = assertRandomResumable c totalSize chunkSize UploadFull
   where
     totalSize = 250 * 1024 + 12345 -- 250 KiB + 12345 B
     chunkSize = 100 * 1024         -- 100 KiB
 
-testResumableStepSmall :: CargoHold -> Http ()
+testResumableStepSmall :: TestSignature ()
 testResumableStepSmall c = assertRandomResumable c totalSize chunkSize UploadStepwise
   where
     totalSize = 500 * 1024 + 12345 -- 500 KiB + 12345 B
     chunkSize = 100 * 1024         -- 100 KiB
 
 -- This should use the S3 multipart upload behind the scenes.
-testResumableStepBig :: CargoHold -> Http ()
+testResumableStepBig :: TestSignature ()
 testResumableStepBig c = assertRandomResumable c totalSize chunkSize UploadStepwise
   where
     totalSize = 26 * 1024 * 1024 -- 26 MiB

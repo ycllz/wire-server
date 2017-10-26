@@ -198,16 +198,6 @@ sitemap = do
     delete "/i/presences/:uid/devices/:did/cannons/:cannon" (continue Presence.remove) $
         param "uid" .&. param "did" .&. param "cannon"
 
-    -- Callback API (Legacy)--------------------------------------------------
-
-    post "/i/callbacks"
-        (continue $ const (return (empty & setStatus status201)))
-        true
-
-    delete "/i/callbacks/:uid/devices/:did"
-        (continue $ const (return (empty & setStatus status204)))
-        true
-
     -- User-Client API -------------------------------------------------------
 
     put "/i/clients/:cid" (continue Client.register) $

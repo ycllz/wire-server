@@ -15,7 +15,7 @@ newtype ServiceConfigFile = ServiceConfigFile String
     deriving (Eq, Ord, Typeable)
 
 instance IsOption ServiceConfigFile where
-    defaultValue = ServiceConfigFile "/etc/wire/cargohold/conf/cargohold.yaml"
+    defaultValue = ServiceConfigFile "/etc/wire/service/conf/service.yaml"
     parseValue = fmap ServiceConfigFile . safeRead
     optionName = return "service-config-file"
     optionHelp = return "Service config file to read from"

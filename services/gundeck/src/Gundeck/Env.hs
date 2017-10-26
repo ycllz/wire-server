@@ -12,7 +12,6 @@ import Data.Metrics.Middleware (Metrics)
 import Data.Text (unpack)
 import Data.Time.Clock.POSIX
 import Util.Options
-import Util.Options.Common as C
 import Gundeck.Options as Opt
 import Gundeck.Types.Presence (Milliseconds (..))
 import Network.HTTP.Client (responseTimeoutMicro)
