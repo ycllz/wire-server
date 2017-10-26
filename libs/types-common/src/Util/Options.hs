@@ -1,13 +1,22 @@
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Util.Options where
 
+import Control.Lens
 import Data.Aeson (FromJSON)
+import Data.Aeson.TH
 import Data.Maybe (fromMaybe)
 import Data.Monoid
-import Data.Yaml (decodeFileEither)
+import Data.Text (Text)
+import Data.Word (Word16)
+import Data.Yaml hiding (Parser)
+import GHC.Generics
 import Options.Applicative
 import System.Directory
 import System.Environment (getArgs)
 import System.IO (hPutStrLn, stderr)
+import Util.Options.Common
 
 getOptions :: (FromJSON a) => String -> Parser a -> FilePath -> IO a
 getOptions desc parser defaultPath = do
@@ -42,3 +51,43 @@ parseConfigPath defaultPath desc = do
         long "config-file" <> short 'c' <> help "Config file to load" <>
         showDefault <>
         value defaultPath
+
+data Endpoint = Endpoint
+    { _epHost :: !Text
+    , _epPort :: !Word16
+    } deriving (Show, Generic)
+
+deriveFromJSON (toFieldName 3) ''Endpoint
+makeLenses ''Endpoint
+
+data CassandraOpts = CassandraOpts
+    { _casEndpoint :: !Endpoint
+    , _casKeyspace :: !Text
+    } deriving (Show, Generic)
+
+deriveFromJSON (toFieldName 4) ''CassandraOpts
+makeLenses ''CassandraOpts
+
+cassandraParser :: Parser CassandraOpts
+cassandraParser = CassandraOpts <$>
+    (Endpoint <$>
+        (textOption $
+            long "cassandra-host"
+            <> metavar "HOSTNAME" 
+            <> help "Cassandra hostname or address")
+      <*>
+        (option auto $
+            long "cassandra-port"
+            <> metavar "PORT"
+            <> help "Cassandra port"))
+  <*>
+    (textOption $
+        long "cassandra-keyspace"
+        <> metavar "STRING"
+        <> help "Cassandra keyspace")
+
+discoUrlParser :: Parser Text
+discoUrlParser = textOption
+    $ long "disco-url" 
+    <> metavar "URL"
+    <> help "klabautermann url"

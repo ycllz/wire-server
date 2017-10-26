@@ -5,6 +5,9 @@
 
 module Gundeck.Options where
 
+import Control.Lens
+import Data.Aeson
+import Data.Aeson.TH
 import Data.Monoid
 import Data.String
 import Data.Text (Text)
@@ -14,6 +17,7 @@ import GHC.Generics
 import Gundeck.Aws.Arn
 import Options.Applicative
 import Options.Applicative.Types
+import Util.Options
 import Util.Options.Common
 
 newtype NotificationTTL = NotificationTTL
@@ -21,41 +25,45 @@ newtype NotificationTTL = NotificationTTL
     deriving (Eq, Ord, Show, Generic, FromJSON)
 
 data AWSOpts = AWSOpts
-    { account   :: !Account
-    , region    :: !Region
-    , arnEnv    :: !ArnEnv
-    , queueName :: !Text
+    { _awsAccount   :: !Account
+    , _awsRegion    :: !Region
+    , _awsArnEnv    :: !ArnEnv
+    , _awsQueueName :: !Text
     } deriving (Show, Generic)
 
-instance FromJSON AWSOpts
+deriveFromJSON (toFieldName 4) ''AWSOpts
+makeLenses ''AWSOpts
 
 data FallbackOpts = FallbackOpts
-    { skipFallbacks :: !Bool
-    , queueDelay    :: !Word64
-    , queueLimit    :: !Int
-    , queueBurst    :: !Word16
+    { _fbSkipFallbacks :: !Bool
+    , _fbQueueDelay    :: !Word64
+    , _fbQueueLimit    :: !Int
+    , _fbQueueBurst    :: !Word16
     } deriving (Show, Generic)
 
-instance FromJSON FallbackOpts
+deriveFromJSON (toFieldName 3) ''FallbackOpts
+makeLenses ''FallbackOpts
 
 data Settings = Settings
-    { httpPoolSize    :: !Int
-    , notificationTTL :: !NotificationTTL
+    { _httpPoolSize    :: !Int
+    , _notificationTTL :: !NotificationTTL
     } deriving (Show, Generic)
 
-instance FromJSON Settings
+deriveFromJSON (toFieldName 1) ''Settings
+makeLenses ''Settings
 
 data Opts = Opts
-    { gundeck     :: !Endpoint
-    , cassandra   :: !CassandraOpts
-    , redis       :: !Endpoint
-    , aws         :: !AWSOpts
-    , discoUrl    :: !(Maybe Text)
-    , fallback    :: !FallbackOpts
-    , optSettings :: !Settings
+    { _gundeck     :: !Endpoint
+    , _cassandra   :: !CassandraOpts
+    , _redis       :: !Endpoint
+    , _aws         :: !AWSOpts
+    , _discoUrl    :: !(Maybe Text)
+    , _fallback    :: !FallbackOpts
+    , _optSettings :: !Settings
     } deriving (Show, Generic)
 
-instance FromJSON Opts
+deriveFromJSON (toFieldName 1) ''Opts
+makeLenses ''Opts
 
 parseOptions :: IO Opts
 parseOptions = execParser (info (helper <*> optsParser) desc)

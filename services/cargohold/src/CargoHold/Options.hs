@@ -1,44 +1,52 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE StrictData    #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE StrictData      #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module CargoHold.Options where
 
 import CargoHold.CloudFront (Domain (..), KeyPairId (..))
 import Control.Applicative
+import Control.Lens
+import Data.Aeson
+import Data.Aeson.TH
 import Data.Monoid
 import Data.Text (Text)
 import Data.Yaml (FromJSON(..))
 import GHC.Generics
 import Options.Applicative
+import Util.Options
 import Util.Options.Common
 
-import qualified Data.Text             as T
-import qualified Ropes.Aws             as Aws
+import qualified Data.Text as T
+import qualified Ropes.Aws as Aws
 
 data AWSOpts = AWSOpts
-    { keyId        :: !(Maybe Aws.AccessKeyId)
-    , secretKey    :: !(Maybe Aws.SecretAccessKey)
-    , s3Bucket     :: Text
-    , cfDomain     :: Domain
-    , cfKeyPairId  :: KeyPairId
-    , cfPrivateKey :: FilePath
+    { _awsKeyId        :: !(Maybe Aws.AccessKeyId)
+    , _awsSecretKey    :: !(Maybe Aws.SecretAccessKey)
+    , _awsS3Bucket     :: Text
+    , _awsCfDomain     :: Domain
+    , _awsCfKeyPairId  :: KeyPairId
+    , _awsCfPrivateKey :: FilePath
     } deriving (Show, Generic)
 
-instance FromJSON AWSOpts
+deriveFromJSON (toFieldName 4) ''AWSOpts
+makeLenses ''AWSOpts
 
 data Settings = Settings
-    { maxTotalBytes :: !Int
+    { _setMaxTotalBytes :: !Int
     } deriving (Show, Generic)
 
-instance FromJSON Settings
+deriveFromJSON (toFieldName 4) ''Settings
+makeLenses ''Settings
 
 data Opts = Opts
-    { cargohold   :: !Endpoint
-    , aws         :: !AWSOpts
-    , settings    :: !Settings
+    { _cargohold   :: !Endpoint
+    , _aws         :: !AWSOpts
+    , _settings    :: !Settings
     } deriving (Show, Generic)
 
-instance FromJSON Opts
+deriveFromJSON (toFieldName 1) ''Opts
+makeLenses ''Opts
 
 parseOptions :: IO Opts
 parseOptions = execParser (info (helper <*> optsParser) desc)

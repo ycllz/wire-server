@@ -30,7 +30,7 @@ import Gundeck.Aws.Arn
 import Gundeck.Env
 import Gundeck.Monad
 import Gundeck.Push.Native.Types
-import Gundeck.Options (arnEnv, notificationTTL, optSettings)
+import Gundeck.Options hiding (aws)
 import Gundeck.Types
 import Gundeck.Util
 import Network.HTTP.Types
@@ -73,7 +73,7 @@ push (req ::: _) = do
         let uniq  = uncurry list1 $ head &&& tail $ toList rcps
         let tgts  = mkTarget <$> uniq
         unless (p^.pushTransient) $
-            Stream.add i tgts pload <$> notificationTTL . optSettings =<< view options
+            Stream.add i tgts pload =<< view (options.optSettings.notificationTTL)
         void . fork $ do
             prs <- Web.push notif tgts (p^.pushOrigin) (p^.pushOriginConnection) (p^.pushConnections)
             pushNative notif p =<< nativeTargets p prs
@@ -222,8 +222,8 @@ addToken (uid ::: cid ::: req ::: _) = do
         let trp = t^.tokenTransport
         let app = t^.tokenApp
         let tok = t^.token
+        env <- view (options.Opt.aws.awsArnEnv)
         aws <- view awsEnv
-        env <- arnEnv . Opt.aws <$> view options
         ept <- Aws.execute aws (Aws.createEndpoint uid trp env app tok)
         case ept of
             Left (Aws.EndpointInUse arn) -> do

@@ -66,7 +66,7 @@ import Data.Typeable
 import Gundeck.Aws.Arn
 import Gundeck.Aws.Sns (Event, evType, evEndpoint)
 import Gundeck.Instances ()
-import qualified Gundeck.Options as O
+import Gundeck.Options
 import Gundeck.Types.Push (AppName (..), Transport (..), Token)
 import Network.AWS (AWSRequest, Rs)
 import Network.AWS (serviceCode, serviceMessage, serviceAbbrev, serviceStatus)
@@ -144,17 +144,17 @@ instance MonadBaseControl IO Amazon where
     restoreM          = Amazon . restoreM
 
 instance AWS.MonadAWS Amazon where
-    liftAWS aws = view awsEnv >>= \e -> AWS.runAWS e aws
+    liftAWS a = view awsEnv >>= \e -> AWS.runAWS e a
 
-mkEnv :: Logger -> O.Opts -> Manager -> IO Env
+mkEnv :: Logger -> Opts -> Manager -> IO Env
 mkEnv lgr opts mgr = do
     let g = Logger.clone (Just "aws.gundeck") lgr
     e <- configure <$> mkAwsEnv g
-    q <- getQueueUrl e (O.queueName $ O.aws opts)
-    return (Env e g q (O.region $ O.aws opts) (O.account $ O.aws opts))
+    q <- getQueueUrl e (opts^.aws.awsQueueName)
+    return (Env e g q (opts^.aws.awsRegion) (opts^.aws.awsAccount))
   where
     mkAwsEnv g =  set AWS.envLogger (awsLogger g)
-               .  set AWS.envRegion (O.region $ O.aws opts)
+               .  set AWS.envRegion (opts^.aws.awsRegion)
               <$> AWS.newEnvWith AWS.Discover Nothing mgr
 
     awsLogger g l = Logger.log g (mapLevel l) . Logger.msg . toLazyByteString

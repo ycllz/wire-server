@@ -25,6 +25,7 @@ import GHC.Generics
 import Network.HTTP.Client (Request, parseRequest)
 import Options.Applicative
 import Options.Applicative.Types (readerAsk)
+import Util.Options
 import Util.Options.Common
 
 import qualified Data.Text             as T

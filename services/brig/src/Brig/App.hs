@@ -110,7 +110,8 @@ import qualified System.FilePath          as Path
 import qualified System.FSNotify          as FS
 import qualified System.Logger            as Log
 import qualified System.Logger.Class      as LC
-import qualified Util.Options.Common      as Opt
+import Util.Options             as Opt
+import Util.Options.Common      as Opt
 
 schemaVersion :: Int32
 schemaVersion = 43
@@ -192,7 +193,7 @@ newEnv o = do
         , _indexEnv      = mkIndexEnv o lgr mgr mtr
         }
   where
-    mkEndpoint service = RPC.host (encodeUtf8 (Opt.host service)) . RPC.port (Opt.port service) $ RPC.empty
+    mkEndpoint service = RPC.host (encodeUtf8 (service^.epHost)) . RPC.port (service^.epPort) $ RPC.empty
 
 mkIndexEnv :: Opts -> Logger -> Manager -> Metrics -> IndexEnv
 mkIndexEnv o lgr mgr mtr =
@@ -307,13 +308,13 @@ initExtGetManager = do
 
 initCassandra :: Opts -> Logger -> IO Cas.ClientState
 initCassandra o g = do
-    c <- maybe (return $ NE.fromList [unpack (Opt.host (Opt.endpoint (Opt.cassandra o)))])
+    c <- maybe (return $ NE.fromList [unpack ((Opt.cassandra o)^.casEndpoint.epHost)])
                (Cas.initialContacts "cassandra_brig")
                (unpack <$> Opt.discoUrl o)
     p <- Cas.init (Log.clone (Just "cassandra.brig") g)
             $ Cas.setContacts (NE.head c) (NE.tail c)
-            . Cas.setPortNumber (fromIntegral (Opt.port (Opt.endpoint (Opt.cassandra o))))
-            . Cas.setKeyspace (Keyspace (Opt.keyspace (Opt.cassandra o)))
+            . Cas.setPortNumber (fromIntegral ((Opt.cassandra o)^.casEndpoint.epPort))
+            . Cas.setKeyspace (Keyspace ((Opt.cassandra o)^.casKeyspace))
             . Cas.setMaxConnections 4
             . Cas.setPoolStripes 4
             . Cas.setSendTimeout 3

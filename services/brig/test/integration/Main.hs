@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric     #-}
 
 module Main (main) where
 
 import Bilge (newManager, host, port, Request)
 import Cassandra as Cql
 import Cassandra.Settings as Cql
+import Control.Lens
 import Control.Monad (join)
 import Data.Aeson
 import Data.Maybe (fromMaybe)
@@ -29,7 +30,8 @@ import qualified API.TURN            as TURN
 import qualified API.User.Auth       as UserAuth
 import qualified Brig.Options        as Opts
 import qualified System.Logger       as Logger
-import qualified Util.Options.Common as Opts
+import Util.Options        as Opts
+import Util.Options.Common as Opts
 
 data Config = Config
   -- internal endpoints
@@ -44,13 +46,13 @@ instance FromJSON Config
 
 runTests :: Maybe Config -> Maybe Opts.Opts -> IO ()
 runTests iConf bConf = do
-    let local p = Opts.Endpoint { Opts.host = "127.0.0.1", Opts.port = p }
+    let local p = Opts.Endpoint { _epHost = "127.0.0.1", _epPort = p }
     b <- mkRequest <$> Opts.optOrEnv brig iConf (local . read) "BRIG_WEB_PORT"
     c <- mkRequest <$> Opts.optOrEnv cannon iConf (local . read) "CANNON_WEB_PORT"
     g <- mkRequest <$> Opts.optOrEnv galley iConf (local . read) "GALLEY_WEB_PORT"
     turnFile <- Opts.optOrEnv (Opts.servers . Opts.turn) bConf id "TURN_SERVERS"
-    casHost  <- Opts.optOrEnv (Opts.host . Opts.endpoint . Opts.cassandra) bConf pack "BRIG_CASSANDRA_HOST"
-    casPort  <- Opts.optOrEnv (Opts.port . Opts.endpoint . Opts.cassandra) bConf read "BRIG_CASSANDRA_PORT"
+    casHost  <- Opts.optOrEnv (\v -> (Opts.cassandra v)^.casEndpoint.epHost) bConf pack "BRIG_CASSANDRA_HOST"
+    casPort  <- Opts.optOrEnv (\v -> (Opts.cassandra v)^.casEndpoint.epPort) bConf read "BRIG_CASSANDRA_PORT"
 
     lg <- Logger.new Logger.defSettings
     db <- initCassandra (Opts.Endpoint casHost casPort) lg
@@ -82,8 +84,8 @@ main = withOpenSSL $ do
 
 initCassandra :: Opts.Endpoint -> Logger -> IO Cql.ClientState
 initCassandra ep lg =
-    Cql.init lg $ Cql.setPortNumber (fromIntegral $ Opts.port ep)
-                . Cql.setContacts (unpack (Opts.host ep)) []
+    Cql.init lg $ Cql.setPortNumber (fromIntegral $ ep^.epPort)
+                . Cql.setContacts (unpack (ep^.epHost)) []
                 . Cql.setKeyspace (Cql.Keyspace "brig_test")
                 $ Cql.defSettings
 

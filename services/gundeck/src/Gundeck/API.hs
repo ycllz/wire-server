@@ -29,7 +29,7 @@ import Network.Wai.Utilities
 import Network.Wai.Utilities.Swagger
 import Network.Wai.Utilities.Server hiding (serverPort)
 import Prelude hiding (head)
-import Util.Options.Common
+import Util.Options
 
 import qualified Control.Concurrent.Async as Async
 import qualified Data.Metrics as Metrics
@@ -52,12 +52,12 @@ runServer o = do
     runClient (e^.cstate) $
         versionCheck schemaVersion
     let l = e^.applog
-    s <- newSettings $ defaultServer (unpack . host $ gundeck o) (port $ gundeck o) l m
+    s <- newSettings $ defaultServer (unpack $ o^.gundeck.epHost) (o^.gundeck.epPort) l m
     app <- pipeline e
     lst <- Async.async $ Aws.execute (e^.awsEnv) (Aws.listen (runDirect e . onEvent))
     runSettingsWithShutdown s app 5 `finally` do
         Log.info l $ Log.msg (Log.val "Draining fallback queue ...")
-        Fallback.drainQueue (e^.fbQueue) (fromIntegral (queueDelay $ fallback o) + 1)
+        Fallback.drainQueue (e^.fbQueue) (fromIntegral (o^.fallback.fbQueueDelay) + 1)
         Log.info l $ Log.msg (Log.val "Shutting down ...")
         shutdown (e^.cstate)
         Async.cancel lst

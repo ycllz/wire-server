@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module API.V3 (tests) where
+module API.V3 where
 
 import Bilge hiding (body)
 import Bilge.Assert
@@ -40,29 +40,35 @@ import qualified Data.UUID                    as UUID
 
 type CargoHold = Request -> Request
 
-test :: Manager -> TestName -> Http a -> TestTree
-test m n h = testCase n (void $ runHttpT m h)
+data TestSetup = TestSetup
+  { manager   :: Manager
+  , cargohold :: CargoHold
+  }
 
-tests :: String -> IO TestTree
-tests cp = do
-    let cg = host "127.0.0.1" . port (read cp)
-    p <- newManager tlsManagerSettings {
-        managerResponseTimeout = responseTimeoutMicro 300000000
-    }
-    return $ testGroup "v3"
-        [ testGroup "simple"
-            [ test p "roundtrip"          (testSimpleRoundtrip cg)
-            , test p "tokens"             (testSimpleTokens cg)
-            , test p "s3-upstream-closed" (testSimpleS3ClosedConnectionReuse cg)
-            ]
-        , testGroup "resumable"
-            [ test p "small"          (testResumableSmall cg)
-            , test p "large"          (testResumableBig cg)
-            , test p "last-small"     (testResumableLastSmall cg)
-            , test p "stepwise-small" (testResumableStepSmall cg)
-            , test p "stepwise-big"   (testResumableStepBig cg)
-            ]
+type TestSignature a = CargoHold -> Http a
+
+test :: IO TestSetup -> TestName -> (TestSignature a) -> TestTree
+test s n h = testCase n runTest
+  where
+    runTest = do
+        setup <- s
+        (void $ runHttpT (manager setup) (h (cargohold setup)))
+
+tests :: IO TestSetup -> TestTree
+tests s = testGroup "v3"
+    [ testGroup "simple"
+        [ test s "roundtrip"          testSimpleRoundtrip
+        , test s "tokens"             testSimpleTokens
+        , test s "s3-upstream-closed" testSimpleS3ClosedConnectionReuse
         ]
+    , testGroup "resumable"
+        [ test s "small"          testResumableSmall
+        , test s "large"          testResumableBig
+        , test s "last-small"     testResumableLastSmall
+        , test s "stepwise-small" testResumableStepSmall
+        , test s "stepwise-big"   testResumableStepBig
+        ]
+    ]
 
 --------------------------------------------------------------------------------
 -- Simple (single-step) uploads

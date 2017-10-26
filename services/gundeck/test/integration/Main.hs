@@ -6,6 +6,7 @@ module Main (main) where
 import Bilge (host, port, Request)
 import Cassandra as Cql
 import Cassandra.Settings as Cql
+import Control.Lens
 import Control.Monad (join)
 import Data.Aeson
 import Data.Maybe (fromMaybe)
@@ -24,7 +25,8 @@ import Types
 import qualified API
 import qualified Gundeck.Options     as Opts
 import qualified System.Logger       as Logger
-import qualified Util.Options.Common as Opts
+import Util.Options        as Opts
+import Util.Options.Common as Opts
 
 data Config = Config
   -- internal endpoints
@@ -45,22 +47,22 @@ main = withOpenSSL $ do
 
 runTests :: Maybe Config -> Maybe Opts.Opts -> IO ()
 runTests iConf gConf = do
-    let local p = Opts.Endpoint { Opts.host = "127.0.0.1", Opts.port = p }
+    let local p = Endpoint { _epHost = "127.0.0.1", _epPort = p }
     g <- Gundeck . mkRequest <$> Opts.optOrEnv gundeck iConf (local . read) "GUNDECK_WEB_PORT"
     c <- Cannon  . mkRequest <$> Opts.optOrEnv cannon iConf (local . read) "CANNON_WEB_PORT"
     b <- Brig    . mkRequest <$> Opts.optOrEnv brig iConf (local . read) "BRIG_WEB_PORT"
-    casHost <- Opts.optOrEnv (Opts.host . Opts.endpoint . Opts.cassandra) gConf pack "GUNDECK_CASSANDRA_HOST"
-    casPort <- Opts.optOrEnv (Opts.port . Opts.endpoint . Opts.cassandra) gConf read "GUNDECK_CASSANDRA_PORT"
+    ch <- Opts.optOrEnv (\v -> v^.Opts.cassandra.casEndpoint.epHost) gConf pack "GUNDECK_CASSANDRA_HOST"
+    cp <- Opts.optOrEnv (\v -> v^.Opts.cassandra.casEndpoint.epPort) gConf read "GUNDECK_CASSANDRA_PORT"
 
     lg <- Logger.new Logger.defSettings
-    db <- initCassandra (Opts.Endpoint casHost casPort) lg
+    db <- initCassandra (Opts.Endpoint ch cp) lg
     tests <- API.tests g c b db 
     defaultMain tests
 
 initCassandra :: Opts.Endpoint -> Logger -> IO Cql.ClientState
 initCassandra ep lg =
-    Cql.init lg $ Cql.setPortNumber (fromIntegral $ Opts.port ep)
-                . Cql.setContacts (unpack (Opts.host ep)) []
+    Cql.init lg $ Cql.setPortNumber (fromIntegral $ ep^.epPort)
+                . Cql.setContacts (unpack (ep^.epHost)) []
                 . Cql.setKeyspace (Cql.Keyspace "gundeck_test")
                 $ Cql.defSettings
 
